@@ -139,7 +139,7 @@ function init() {
 			vertexShader: document.getElementById( 'vertexShader' ).textContent,
 			fragmentShader: document.getElementById( 'fragmentShader' ).textContent
 		} );
-		var shaderGeom = new THREE.BoxBufferGeometry(1, 1, 1, 256, 256);
+		var shaderGeom = new THREE.SphereBufferGeometry(1, 256, 256);
 
 		shaderPlane = new THREE.Mesh(shaderGeom, shaderMat);
 		shaderPlane.scale.set(5, 5, 5);
