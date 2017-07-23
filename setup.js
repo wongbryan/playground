@@ -1,5 +1,8 @@
 var camera, scene, renderer, controls, gui;
 var mouse = {x: 0, y: 0};
+var clock = new THREE.Clock();
+var test;
+var shaderGeom;
 
 function resize(){
 	camera.aspect = window.innerWidth / window.innerHeight;
@@ -33,7 +36,8 @@ function init() {
 		scene.add(ambientLight);
 		scene.add(directionalLight);
 
-		var noiseTex = THREE.ImageUtils.loadTexture("assets/rgb texture.png");
+		var noiseTex = new THREE.TextureLoader().load("assets/rgb texture.png");
+		var yellowGradient = new THREE.TextureLoader().load("assets/yellow-gradient.png");
 		noiseTex.wrapT = noiseTex.wrapS = THREE.RepeatWrapping;
 		var zoomDivider = 12;
 		shaderMat = new THREE.ShaderMaterial( {
@@ -42,27 +46,34 @@ function init() {
 			//shading: THREE.FlatShading,
 			wireframe: true,
 			uniforms: {
-				"uTime": { type: "f", value: 0.0 },
-				"tPerlin": { type: "t", value: noiseTex },
-				"fSpeed" : { type: "f", value: 50.0},
-				"fOpacity" : {type: "f", value: .05},
-				"amtRed" : {type: "f", value: 1.0},
-				"amtBlue" : {type: "f", value: 1.0},
-				"amtGreen" : {type: "f", value: 1.0}
+				"uTime" : { type: "f", value: 0.0 },
+				"tPerlin" : { type: "t", value: noiseTex },
+				"tYellow" : { type: "t", value: yellowGradient},
+				"fSpeed" : { type: "f", value: 2000.},
 			},
 			depthTest: false,
 			vertexShader: document.getElementById( 'vertexShader' ).textContent,
 			fragmentShader: document.getElementById( 'fragmentShader' ).textContent
 		} );
-		var shaderGeom = new THREE.SphereBufferGeometry(1, 256, 256);
 
-		shaderPlane = new THREE.Mesh(shaderGeom, shaderMat);
-		scene.add(shaderPlane);
+		shaderGeom = new THREE.CylinderBufferGeometry(.1, .1, 10, 256, 256);
+		// shaderGeomTest = new THREE.Geometry();
+		// for (var i=0; i<test.children.length; i++){
+		// 	var vertices = test.children[i].geometry.vertices;
+		// 	for (var j=0; j<vertices.length; j++){
+		// 		shaderGeomTest.vertices.push(vertices[j]);
+		// 	}
+		// }
+
+		lightning = new THREE.Mesh(shaderGeom, shaderMat);
+		// lightning.scale.set(2, 2, 2);
+		scene.add(lightning);
 
 		window.addEventListener('resize', resize);
 	}
 
 	function update(){
+		shaderMat.uniforms["uTime"].value += clock.getDelta() * .0005;
 		camera.lookAt(scene.position);
 		controls.update();
 	}
