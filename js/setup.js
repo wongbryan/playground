@@ -118,7 +118,7 @@ function init() {
 		scene.add(ambientLight);
 		scene.add(directionalLight);
 
-		var noiseTex = THREE.ImageUtils.loadTexture("assets/rgb texture.png");
+		var noiseTex = THREE.ImageUtils.loadTexture("/assets/rgb texture.png");
 		noiseTex.wrapT = noiseTex.wrapS = THREE.RepeatWrapping;
 		var zoomDivider = 12;
 		shaderMat = new THREE.ShaderMaterial( {
