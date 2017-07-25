@@ -3,7 +3,7 @@ var angle = 0;
 var clock = new THREE.Clock();
 var time;
 
-var box;
+var shapeStorm;
 
 function resize(){
 	camera.aspect = window.innerWidth / window.innerHeight;
@@ -41,11 +41,8 @@ function init() {
 		scene.add(directionalLight);
 		scene.add(pointLight);
 
-	    var geometry = new THREE.BoxBufferGeometry( 1, 1, 1 );
-	    var material = new THREE.MeshPhongMaterial( { color: 0x111111 } );
-	    box = new THREE.Mesh( geometry, material );
-	    box.position.z = 2;
-	    scene.add( box );
+		shapeStorm = new ShapeStorm();
+		scene.add(shapeStorm.mesh);
 
 		window.addEventListener('resize', resize);
 	}

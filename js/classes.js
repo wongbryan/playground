@@ -187,6 +187,7 @@ var Sun = function(){
 }
 
 var ShapeStorm = function(){
+  var group = new THREE.Group();
   var tPI = Math.PI * 2;
 
   var radius = 25, //sphere radius
@@ -235,10 +236,22 @@ var ShapeStorm = function(){
     var posZ = Math.sin(theta) * radius;
     mesh.position.set(posX, posY, posZ);
     // mesh.layers.set(OCCLUSION_LAYER);
-    scene.add(mesh);
+    group.add(mesh);
   }
 
-  // this.mesh = triangles;
+  this.mesh = group;
+}
+
+var OblivionSphere = function(){
+  var sphereGeom = new THREE.SphereGeometry(10, 16, 16);
+  var mat = new THREE.MeshBasicMaterial({
+    color: 0x000000, 
+    wireframe: true,
+    transparent: true
+  });
+  var mesh = new THREE.Mesh(sphereGeom, mat);
+
+  this.mesh = mesh;
 }
 
 

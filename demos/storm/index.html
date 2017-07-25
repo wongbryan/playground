@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Threejs Test</title>
+</head>
+
+<style>
+	body{
+		margin: 0;
+		overflow: hidden;
+	}
+</style>
+<body>
+	<div id="container"></div>
+</body>
+
+<script type="x-shader/x-vertex" id="lightningVertex">
+	uniform float uTime;
+	uniform sampler2D tPerlin;
+	varying vec2 vUv;
+	uniform float fSpeed;
+
+	void main(){
+		vUv = uv; //get uv coordinate on texture
+		vec4 color = texture2D(tPerlin, uv); //get color based on uv coord [0, 1]
+			float magnitude = sin(uTime) * 10.;
+		vec4 color2 = texture2D(tPerlin, vec2(color.r, color.b) + uTime*fSpeed);  //adding a factor changes the 
+																			//color value -> changes position 
+																			//value. multiplying uTime changes
+																			//the color value faster (depends on texture)
+		gl_Position = projectionMatrix * modelViewMatrix * vec4(position.x / color2.g/2., position.y/color2.r/2., position.z, 1.);
+	}
+</script>
+
+<script type="x-shader/x-vertex" id="lightningFragment">
+	uniform float uTime;
+	uniform sampler2D tYellow;
+	uniform sampler2D tPerlin;
+	varying vec2 vUv; //can only access attributes in vertex shader
+	uniform float fSpeed;
+
+	void main(){
+		vec4 color = texture2D(tYellow, vUv); //get color based on uv coord [0, 1]
+
+		gl_FragColor = vec4(vec3(color.r, color.g, color.b), 0.1);
+	}
+</script>
+
+<script type="x-shader/x-vertex" id="raysVertex">
+	uniform float uTime;
+	uniform sampler2D tPerlin;
+	varying vec2 vUv;
+	uniform float fSpeed;
+
+	void main(){
+		vUv = uv; //get uv coordinate on texture
+		vec4 color = texture2D(tPerlin, uv); //get color based on uv coord [0, 1]
+		vec4 color2 = texture2D(tPerlin, vec2(color.r, color.b) + uTime*fSpeed);  //adding a factor changes the 
+																			//color value -> changes position 
+																			//value. multiplying uTime changes
+																			//the color value faster (depends on texture)
+		gl_Position = projectionMatrix * modelViewMatrix * vec4(position+color2.rgb, 1.);
+	}
+</script>
+
+<script type="x-shader/x-vertex" id="raysFragment">
+	uniform float uTime;
+	uniform sampler2D tPerlin;
+	varying vec2 vUv; //can only access attributes in vertex shader
+	uniform float fSpeed;
+
+	void main(){
+		gl_FragColor = vec4(vec3(0, 0, 0)+vec3(.5, .5, .5) * uTime, .015);
+	}
+</script>
+
+<script src="/bower_components/three.js/build/three.js"></script>
+<script src="/bower_components/three.js/examples/js/controls/TrackballControls.js"></script>
+<script src="/bower_components/dat.gui/dat.gui.min.js"></script>
+<script src="/bower_components/three.js/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="/bower_components/three.js/examples/js/shaders/CopyShader.js"></script>
+<script src="/bower_components/three.js/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="/bower_components/three.js/examples/js/postprocessing/RenderPass.js"></script>
+<script src="/js/classes.js"></script>
+<script src="setup.js"></script>
+</html>

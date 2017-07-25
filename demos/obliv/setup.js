@@ -3,7 +3,11 @@ var angle = 0;
 var clock = new THREE.Clock();
 var time;
 
-var box;
+var box, occlusionBox, oblivSphere, sun;
+
+
+const DEFAULT_LAYER = 0, 
+OCCLUSION_LAYER = 1;
 
 function resize(){
 	camera.aspect = window.innerWidth / window.innerHeight;
@@ -22,7 +26,7 @@ function init() {
 		container.appendChild( renderer.domElement );
 		
 		camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
-		camera.position.set(0, 0, 10);
+		camera.position.set(0, 0, 50);
 		controls = new THREE.TrackballControls(camera, renderer.domElement);
 		controls.rotateSpeed = 2.0;
 		controls.panSpeed = 0.8;
@@ -41,11 +45,28 @@ function init() {
 		scene.add(directionalLight);
 		scene.add(pointLight);
 
+		sun = new Sun();
+		sun.mesh.layers.set(OCCLUSION_LAYER);
+		scene.add(sun.mesh);
+
+		// the box in the scene that rotatates around the light
 	    var geometry = new THREE.BoxBufferGeometry( 1, 1, 1 );
 	    var material = new THREE.MeshPhongMaterial( { color: 0x111111 } );
 	    box = new THREE.Mesh( geometry, material );
 	    box.position.z = 2;
-	    scene.add( box );
+	    // scene.add( box );
+	    
+	    // the all black second box that is used to create the occlusion 
+	    var material = new THREE.MeshBasicMaterial( { color:0x111111 } );
+	    occlusionBox = new THREE.Mesh( geometry, material);
+	    occlusionBox.position.z = 2;
+	    occlusionBox.layers.set( OCCLUSION_LAYER );
+	    scene.add( occlusionBox );
+
+	    oblivSphere = new OblivionSphere();
+	    oblivSphere.mesh.layers.set(OCCLUSION_LAYER);
+	    scene.add(oblivSphere.mesh);
+	    setUpVolumetericProcessing();
 
 		window.addEventListener('resize', resize);
 	}
@@ -57,7 +78,13 @@ function init() {
 
 	function animate(){
 		update();
-		renderer.render(scene, camera);
+	 	camera.layers.set(OCCLUSION_LAYER);
+	    renderer.setClearColor(0xededed);
+	    occlusionComposer.render();
+	    
+	    camera.layers.set(DEFAULT_LAYER);
+	    renderer.setClearColor(0x111111);
+	    composer.render();
 		window.requestAnimationFrame(animate);
 	}
 
