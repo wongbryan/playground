@@ -1,7 +1,7 @@
 //texture
-var perlinNoise = new THREE.TextureLoader().load("assets/rgb texture.png");
+var perlinNoise = new THREE.TextureLoader().load("/assets/rgb texture.png");
 perlinNoise.wrapT = perlinNoise.wrapS = THREE.RepeatWrapping;
-var yellowGradient = new THREE.TextureLoader().load("assets/yellow-gradient-trans.png");
+var yellowGradient = new THREE.TextureLoader().load("/assets/yellow-gradient-trans.png");
 
 //Shaders
 THREE.VolumetericLightShader = {
@@ -153,7 +153,7 @@ var Rays = function(){
 var Aurora = function(){
   var group = new THREE.Group();
   var mesh;
-  rayMat = new THREE.ShaderMaterial( {
+  auroraMat = new THREE.ShaderMaterial( {
     transparent: true,
     wireframe: true,
     // shading: THREE.FlatShading,
@@ -168,7 +168,7 @@ var Aurora = function(){
   } );
 
   var geom = new THREE.CircleBufferGeometry(5, 256, 256);
-  mesh = new THREE.Mesh(geom, rayMat);  
+  mesh = new THREE.Mesh(geom, auroraMat);  
   var mesh2 = mesh.clone();
   group.add(mesh);
   group.add(mesh2);
