@@ -3,7 +3,7 @@ var angle = 0;
 var clock = new THREE.Clock();
 var time;
 
-var lighting, ray, sun;
+var lighting, ray, sun, shapeStorm;
 
 var box, occlusionBox;
 
@@ -50,17 +50,16 @@ function init() {
 		scene.add(pointLight);
 
 		lightning = new Lightning();
-		// scene.add(lightning.mesh);
+		scene.add(lightning.mesh);
 
 		rays = new Rays();
-		rays.mesh.position.set(-2, 2.5, 5);
 		rays.mesh.scale.set(5, 5, 5);
 		rays.mesh.rotation.x = Math.PI/1.9;
-		rays.mesh.layers.set(OTHER);
+		// rays.mesh.layers.set(OTHER);
 		scene.add(rays.mesh);
 
 		sun = new Sun();
-		sun.mesh.layers.set(OCCLUSION_LAYER);
+		// sun.mesh.layers.set(OCCLUSION_LAYER);
 		scene.add(sun.mesh);
 
 		// the box in the scene that rotatates around the light
@@ -68,7 +67,7 @@ function init() {
 	    var material = new THREE.MeshPhongMaterial( { color: 0x111111 } );
 	    box = new THREE.Mesh( geometry, material );
 	    box.position.z = 2;
-	    scene.add( box );
+	    // scene.add( box );
 	    
 	    // the all black second box that is used to create the occlusion 
 	    var material = new THREE.MeshBasicMaterial( { color:0x111111 } );
@@ -77,8 +76,13 @@ function init() {
 	    occlusionBox.layers.set( OCCLUSION_LAYER );
 	    scene.add( occlusionBox );
 
-	    setUpPostProcessing();
+	    shapeStorm = new ShapeStorm();
+	    // shapeStorm.mesh.layers.set(OCCLUSION_LAYER);
+	    // shapeStorm.mesh.position.set(0, 0, 2);
+	    // scene.add(shapeStorm.mesh);
 
+	    // setUpPostProcessing();
+	    // setupGUI();
 		window.addEventListener('resize', resize);
 	}
 
@@ -131,15 +135,15 @@ function init() {
 	}
 	function animate(){
 		update();
-		camera.layers.set(OCCLUSION_LAYER);
-	    renderer.setClearColor(0xededed);
-	    occlusionComposer.render();
+		// camera.layers.set(OCCLUSION_LAYER);
+	 //    renderer.setClearColor(0xededed);
+	 //    occlusionComposer.render();
 	    
-	    camera.layers.set(DEFAULT_LAYER);
-	    renderer.setClearColor(0x111111);
-	    composer.render();
+	 //    camera.layers.set(DEFAULT_LAYER);
+	 //    renderer.setClearColor(0x111111);
+	 //    composer.render();
 
-		// renderer.render(scene, camera);
+		renderer.render(scene, camera);
 		window.requestAnimationFrame(animate);
 	}
 

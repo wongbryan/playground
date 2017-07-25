@@ -140,18 +140,44 @@ var Rays = function(){
 			"fSpeed" : { type: "f", value: 66.}
 		},
 		depthTest: false,
-		vertexShader: document.getElementById( 'raysVertex' ).textContent,
-		fragmentShader: document.getElementById( 'raysFragment' ).textContent
+		vertexShader: document.getElementById( 'lightningVertex' ).textContent,
+		fragmentShader: document.getElementById( 'lightningFragment' ).textContent
 	} );
 
-	var geom = new THREE.PlaneBufferGeometry(1, 256, 256);
+	var geom = new THREE.CircleBufferGeometry(5, 256, 256);
 	mesh = new THREE.Mesh(geom, rayMat);
 
 	this.mesh = mesh;
 } 
 
+var Aurora = function(){
+  var group = new THREE.Group();
+  var mesh;
+  rayMat = new THREE.ShaderMaterial( {
+    transparent: true,
+    wireframe: true,
+    // shading: THREE.FlatShading,
+    uniforms: {
+      "uTime" : { type: "f", value: 0.0 },
+      "tPerlin" : { type: "t", value: perlinNoise },
+      "fSpeed" : { type: "f", value: 66.}
+    },
+    depthTest: false,
+    vertexShader: document.getElementById( 'lightningVertex' ).textContent,
+    fragmentShader: document.getElementById( 'lightningFragment' ).textContent
+  } );
+
+  var geom = new THREE.CircleBufferGeometry(5, 256, 256);
+  mesh = new THREE.Mesh(geom, rayMat);  
+  var mesh2 = mesh.clone();
+  group.add(mesh);
+  group.add(mesh2);
+
+  this.mesh = group;
+}
+
 var Sun = function(){
-	var sunGeom = new THREE.SphereBufferGeometry(1, 16, 16);
+	var sunGeom = new THREE.SphereGeometry(1, 16, 16);
 	var sunMat = new THREE.MeshBasicMaterial({color: 0xededed});
 
 	var mesh = new THREE.Mesh(sunGeom, sunMat);
@@ -159,3 +185,65 @@ var Sun = function(){
 
 	this.mesh = mesh;
 }
+
+var ShapeStorm = function(){
+  var tPI = Math.PI * 2;
+
+  var radius = 25, //sphere radius
+  numShapes = 1000, 
+  maxVertices = 6,
+  maxShapeRadius = 5, //circle in which to draw the shape
+  maxThickness = 2,
+  shapesArray = [];
+
+  var mat = new THREE.MeshBasicMaterial({color: 0x000000, side: THREE.DoubleSide}); //use black for now, custom shader later on
+
+  for (var i=0; i<numShapes; i++){ //CONSTRUCT EACH SHAPE
+    var geom = new THREE.Geometry();
+    var tempRadius = Math.random()*maxShapeRadius; //draw within this circle
+    var tempThickness = Math.random()*maxThickness; //displace points by this much
+    var numVertices = Math.random()*maxVertices;
+    numVertices >= 3 ? numVertices : 3;
+
+    var x, y, z = 0;
+    var vertex;
+    var vertexCount = 0;
+    for (var j=0; j<numVertices; j++){ //GET VERTICES OF THE SHAPE
+      var angle = Math.random()*tPI;
+      x = tempRadius * Math.cos(angle);
+      y = tempRadius * Math.sin(angle);
+      z = 10;
+
+      vertex = new THREE.Vector3(x, y, z);
+      geom.vertices.push(vertex);
+      vertexCount++;
+
+      if (vertexCount == 3){
+        geom.faces.push(new THREE.Face3(0, 1, 2));
+      }
+      else if (vertexCount == 6){
+        geom.faces.push(new THREE.Face3(3, 4, 5));
+      }
+    }
+
+    geom.computeBoundingSphere();
+    var mesh = new THREE.Mesh(geom, mat); //create mesh
+    var theta = Math.random() * tPI;
+    var phi = Math.random () * tPI/2;
+    var posX = Math.cos(theta) * radius;
+    var posY = Math.cos(phi) * radius;
+    var posZ = Math.sin(theta) * radius;
+    mesh.position.set(posX, posY, posZ);
+    // mesh.layers.set(OCCLUSION_LAYER);
+    scene.add(mesh);
+  }
+
+  // this.mesh = triangles;
+}
+
+
+
+
+
+
+
