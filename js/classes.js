@@ -152,7 +152,7 @@ var Rays = function(){
 
 var Sun = function(){
 	var sunGeom = new THREE.SphereBufferGeometry(1, 16, 16);
-	var sunMat = new THREE.MeshBasicMaterial({color: 0xffffff});
+	var sunMat = new THREE.MeshBasicMaterial({color: 0xededed});
 
 	var mesh = new THREE.Mesh(sunGeom, sunMat);
 	// mesh.position.set(0, .9, 0);

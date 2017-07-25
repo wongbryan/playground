@@ -10,7 +10,8 @@ var box, occlusionBox;
 var occlusionRenderTarget, occlusionComposer, composer, volumetericLightShaderUniforms;
 
 const DEFAULT_LAYER = 0, 
-OCCLUSION_LAYER = 1;
+OCCLUSION_LAYER = 1,
+OTHER = 2;
 
 function resize(){
 	camera.aspect = window.innerWidth / window.innerHeight;
@@ -25,7 +26,7 @@ function init() {
 		renderer.shadowMap.type = THREE.PCSoftShadowMap;
 		renderer.setPixelRatio( window.devicePixelRatio );
 		renderer.setSize( window.innerWidth, window.innerHeight);
-		// renderer.setClearColor(0xededed);
+		renderer.setClearColor(0xededed);
 		container.appendChild( renderer.domElement );
 		
 		camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
@@ -55,7 +56,8 @@ function init() {
 		rays.mesh.position.set(-2, 2.5, 5);
 		rays.mesh.scale.set(5, 5, 5);
 		rays.mesh.rotation.x = Math.PI/1.9;
-		// scene.add(rays.mesh);
+		rays.mesh.layers.set(OTHER);
+		scene.add(rays.mesh);
 
 		sun = new Sun();
 		sun.mesh.layers.set(OCCLUSION_LAYER);
@@ -63,13 +65,13 @@ function init() {
 
 		// the box in the scene that rotatates around the light
 	    var geometry = new THREE.BoxBufferGeometry( 1, 1, 1 );
-	    var material = new THREE.MeshPhongMaterial( { color: 0xe74c3c } );
+	    var material = new THREE.MeshPhongMaterial( { color: 0x111111 } );
 	    box = new THREE.Mesh( geometry, material );
 	    box.position.z = 2;
 	    scene.add( box );
 	    
 	    // the all black second box that is used to create the occlusion 
-	    var material = new THREE.MeshBasicMaterial( { color:0x000000 } );
+	    var material = new THREE.MeshBasicMaterial( { color:0x111111 } );
 	    occlusionBox = new THREE.Mesh( geometry, material);
 	    occlusionBox.position.z = 2;
 	    occlusionBox.layers.set( OCCLUSION_LAYER );
@@ -116,9 +118,9 @@ function init() {
         zpos = Math.cos(angle) * radius;
     
 	    // each frame rotate the lit cube
-	    box.position.set( xpos, 0, zpos);
-	    box.rotation.x += 0.01;
-	    box.rotation.y += 0.01;
+	    // box.position.set( xpos, 0, zpos);
+	    // box.rotation.x += 0.01;
+	    // box.rotation.y += 0.01;
 	    
 	    // and match its position and rotation with the 
 	    // occluding cube
@@ -130,7 +132,7 @@ function init() {
 	function animate(){
 		update();
 		camera.layers.set(OCCLUSION_LAYER);
-	    renderer.setClearColor(0x111111);
+	    renderer.setClearColor(0xededed);
 	    occlusionComposer.render();
 	    
 	    camera.layers.set(DEFAULT_LAYER);
