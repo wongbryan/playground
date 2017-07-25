@@ -141,12 +141,12 @@ var Rays = function(){
 		},
 		depthTest: false,
 		vertexShader: document.getElementById( 'lightningVertex' ).textContent,
-		fragmentShader: document.getElementById( 'lightningFragment' ).textContent
+		fragmentShader: document.getElementById( 'raysFragment' ).textContent
 	} );
 
 	var geom = new THREE.CircleBufferGeometry(5, 256, 256);
 	mesh = new THREE.Mesh(geom, rayMat);
-
+  mesh.rotation.x += Math.PI/2;
 	this.mesh = mesh;
 } 
 
