@@ -1,7 +1,7 @@
 //texture
-var perlinNoise = new THREE.TextureLoader().load("/assets/rgb texture.png");
+var perlinNoise = new THREE.TextureLoader().load("../assets/rgb texture.png");
 perlinNoise.wrapT = perlinNoise.wrapS = THREE.RepeatWrapping;
-var yellowGradient = new THREE.TextureLoader().load("/assets/yellow-gradient-trans.png");
+var yellowGradient = new THREE.TextureLoader().load("../assets/yellow-gradient-trans.png");
 
 //Shaders
 THREE.VolumetericLightShader = {
