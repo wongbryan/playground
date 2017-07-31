@@ -31,7 +31,7 @@
 																			//color value -> changes position 
 																			//value. multiplying uTime changes
 																			//the color value faster (depends on texture)
-		gl_Position = projectionMatrix * modelViewMatrix * vec4(position.x / color2.g/2., position.y/color2.r/2., position.z, 1.);
+		gl_Position = projectionMatrix * modelViewMatrix * vec4(position.xyz + sin(color2.rgb), 1.);
 	}
 </script>
 
@@ -45,7 +45,7 @@
 	void main(){
 		vec4 color = texture2D(tYellow, vUv); //get color based on uv coord [0, 1]
 
-		gl_FragColor = vec4(vec3(color.r, color.g, color.b), 0.1);
+		gl_FragColor = vec4(vec3(color.r, color.g, color.b), 1);
 	}
 </script>
 

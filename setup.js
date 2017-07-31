@@ -2,8 +2,11 @@ var camera, scene, renderer, controls, gui;
 var clock = new THREE.Clock();
 var time;
 
+var lightningMat;
+
 var U, L, T;
 var ULT;
+var lightning;
 var box;
 
 const DEFAULT_LAYER = 0, 
@@ -51,9 +54,20 @@ function init() {
 		texture.magFilter = THREE.LinearFilter;
 		texture.format = THREE.RGBFormat;
 
-		var geometry = new THREE.BoxGeometry(15, 10, 5);
-		box = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({transparent: true, opacity: .5, map: texture}));
-		scene.add(box);
+		lightningMat = new THREE.ShaderMaterial( {
+			transparent: true,
+			wireframe: true,
+			//shading: THREE.FlatShading,
+			uniforms: {
+				"uTime" : { type: "f", value: 0.0 },
+				"tPerlin" : { type: "t", value: perlinNoise },
+				"tYellow" : { type: "t", value: yellowGradient},
+				"fSpeed" : { type: "f", value: 2000.}
+			},
+			depthTest: false,
+			vertexShader: document.getElementById( 'lightningVertex' ).textContent,
+			fragmentShader: document.getElementById( 'lightningFragment' ).textContent
+		} );
 
 		var loader = new THREE.FontLoader();
 		var mat = new THREE.MeshPhongMaterial({color: 0xffffff, map: texture});
@@ -62,6 +76,7 @@ function init() {
 				font: font,
 				size: 10,
 				height: .5,
+				curveSegments: 50
 			};
 
 			var height = 15, width = 7;
@@ -83,14 +98,15 @@ function init() {
 			// scene.add(L);
 			// scene.add(T);
 
-			vargeom = new THREE.TextGeometry('ult', params);
+			var geom = new THREE.TextGeometry('ult', params);
 			geom.center();
 			ULT = new THREE.Mesh(geom, mat);
+			lightning = new THREE.Mesh(geom, lightningMat);
+			lightning.scale.set(1, 1, 1.5);
+			lightning.position.set(-.5, -.5, -.5);
+			scene.add(lightning);
 			scene.add(ULT);
 		});
-
-		lightning = new Lightning();
-		scene.add(lightning.mesh);
 
 		window.addEventListener('resize', resize);
 	}
