@@ -1,13 +1,10 @@
 var camera, scene, renderer, controls, gui;
-var angle = 0;
 var clock = new THREE.Clock();
 var time;
 
-var lighting, ray, sun, shapeStorm;
-
-var box, occlusionBox;
-
-var occlusionRenderTarget, occlusionComposer, composer, volumetericLightShaderUniforms;
+var U, L, T;
+var ULT;
+var box;
 
 const DEFAULT_LAYER = 0, 
 OCCLUSION_LAYER = 1,
@@ -30,7 +27,7 @@ function init() {
 		container.appendChild( renderer.domElement );
 		
 		camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
-		camera.position.set(0, 0, 10);
+		camera.position.set(0, 0, 20);
 		controls = new THREE.TrackballControls(camera, renderer.domElement);
 		controls.rotateSpeed = 2.0;
 		controls.panSpeed = 0.8;
@@ -43,46 +40,58 @@ function init() {
 		directionalLight.castShadow = true;
 		var ambientLight = new THREE.AmbientLight(0xffffff);
 		var pointLight = new THREE.PointLight(0xffffff);
-		pointLight.position.set(0, 0, 0);
 
 		scene.add(ambientLight);
 		scene.add(directionalLight);
-		scene.add(pointLight);
+
+		var video = document.getElementById('video');
+
+		var texture = new THREE.VideoTexture(video);
+		texture.minFilter = THREE.LinearFilter;
+		texture.magFilter = THREE.LinearFilter;
+		texture.format = THREE.RGBFormat;
+
+		var geometry = new THREE.BoxGeometry(15, 10, 5);
+		box = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({transparent: true, opacity: .5, map: texture}));
+		scene.add(box);
+
+		var loader = new THREE.FontLoader();
+		var mat = new THREE.MeshPhongMaterial({color: 0xffffff, map: texture});
+		loader.load('assets/youth-culture.json', function(font){
+			var params = {
+				font: font,
+				size: 10,
+				height: .5,
+			};
+
+			var height = 15, width = 7;
+
+			var geom = new THREE.TextGeometry('u', params);
+
+			U = new THREE.Mesh(geom, mat);
+			U.position.set(-width/2, height/3, 0);
+
+			geom = new THREE.TextGeometry('l', params);
+			L = new THREE.Mesh(geom, mat);
+			L.position.set(width/2, 0, 0);
+
+			geom = new THREE.TextGeometry('t', params);
+			T = new THREE.Mesh(geom, mat);
+			T.position.set(-width/2, -height/2, 0);
+
+			// scene.add(U);
+			// scene.add(L);
+			// scene.add(T);
+
+			vargeom = new THREE.TextGeometry('ult', params);
+			geom.center();
+			ULT = new THREE.Mesh(geom, mat);
+			scene.add(ULT);
+		});
 
 		lightning = new Lightning();
 		scene.add(lightning.mesh);
 
-		rays = new Rays();
-		rays.mesh.scale.set(5, 5, 5);
-		rays.mesh.rotation.x = Math.PI/1.9;
-		// rays.mesh.layers.set(OTHER);
-		scene.add(rays.mesh);
-
-		sun = new Sun();
-		// sun.mesh.layers.set(OCCLUSION_LAYER);
-		scene.add(sun.mesh);
-
-		// the box in the scene that rotatates around the light
-	    var geometry = new THREE.BoxBufferGeometry( 1, 1, 1 );
-	    var material = new THREE.MeshPhongMaterial( { color: 0x111111 } );
-	    box = new THREE.Mesh( geometry, material );
-	    box.position.z = 2;
-	    // scene.add( box );
-	    
-	    // the all black second box that is used to create the occlusion 
-	    var material = new THREE.MeshBasicMaterial( { color:0x111111 } );
-	    occlusionBox = new THREE.Mesh( geometry, material);
-	    occlusionBox.position.z = 2;
-	    occlusionBox.layers.set( OCCLUSION_LAYER );
-	    scene.add( occlusionBox );
-
-	    shapeStorm = new ShapeStorm();
-	    // shapeStorm.mesh.layers.set(OCCLUSION_LAYER);
-	    // shapeStorm.mesh.position.set(0, 0, 2);
-	    // scene.add(shapeStorm.mesh);
-
-	    // setUpPostProcessing();
-	    // setupGUI();
 		window.addEventListener('resize', resize);
 	}
 
@@ -113,25 +122,8 @@ function init() {
 	function update(){
 		time = clock.getDelta() * .0005;
 		lightningMat.uniforms["uTime"].value += time;
-		rayMat.uniforms["uTime"].value += time;
 		camera.lookAt(scene.position);
 		controls.update();
-
-		var radius = 2.5,
-        xpos = Math.sin(angle) * radius,
-        zpos = Math.cos(angle) * radius;
-    
-	    // each frame rotate the lit cube
-	    // box.position.set( xpos, 0, zpos);
-	    // box.rotation.x += 0.01;
-	    // box.rotation.y += 0.01;
-	    
-	    // and match its position and rotation with the 
-	    // occluding cube
-	    occlusionBox.position.copy(box.position);
-	    occlusionBox.rotation.copy(box.rotation);
-	    
-	    angle += 0.02;
 	}
 	function animate(){
 		update();
