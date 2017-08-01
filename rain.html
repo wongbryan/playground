@@ -30,7 +30,7 @@
 
 	a:nth-child(2):hover{
 		cursor: pointer;
-		color: lightblue;
+		color: #486686;
 	}
 </style>
 <body>
@@ -131,7 +131,6 @@
 	function update(){
 		var delta = clock.getDelta();
 		controls.update(delta);
-		// camera.lookAt(new THREE.Vector3(0, 0, 0));
 
 		if (!loadedBox)
 			return;
