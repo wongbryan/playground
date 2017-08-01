@@ -113,6 +113,7 @@
 				box = new ParticleObject(geom, 0x486686, .05);
 			    box.mesh.position.set(0, 0, 0);
 			    box.mesh.scale.set(5, 5, 5);
+			    box.mesh.rotation.y = Math.PI/3;
 			    box.mesh.add(sound);
 			    scene.add( box.mesh );
 			    loadedBox = true;
