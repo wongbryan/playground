@@ -106,48 +106,48 @@ THREE.PassThroughShader = {
 
 //objects
 var Lightning = function(){
-	var mesh;
-	lightningMat = new THREE.ShaderMaterial( {
-		transparent: true,
-		wireframe: true,
-		//shading: THREE.FlatShading,
-		uniforms: {
-			"uTime" : { type: "f", value: 0.0 },
-			"tPerlin" : { type: "t", value: perlinNoise },
-			"tYellow" : { type: "t", value: yellowGradient},
-			"fSpeed" : { type: "f", value: 2000.}
-		},
-		depthTest: false,
-		vertexShader: document.getElementById( 'lightningVertex' ).textContent,
-		fragmentShader: document.getElementById( 'lightningFragment' ).textContent
-	} );
+  var mesh;
+  lightningMat = new THREE.ShaderMaterial( {
+    transparent: true,
+    wireframe: true,
+    //shading: THREE.FlatShading,
+    uniforms: {
+      "uTime" : { type: "f", value: 0.0 },
+      "tPerlin" : { type: "t", value: perlinNoise },
+      "tYellow" : { type: "t", value: yellowGradient},
+      "fSpeed" : { type: "f", value: 2000.}
+    },
+    depthTest: false,
+    vertexShader: document.getElementById( 'lightningVertex' ).textContent,
+    fragmentShader: document.getElementById( 'lightningFragment' ).textContent
+  } );
 
-	var shaderGeom = new THREE.CylinderBufferGeometry(.1, .1, 10, 128, 128);
-	mesh = new THREE.Mesh(shaderGeom, lightningMat);
+  var shaderGeom = new THREE.CylinderBufferGeometry(.1, .1, 10, 128, 128);
+  mesh = new THREE.Mesh(shaderGeom, lightningMat);
 
-	this.mesh = mesh;
+  this.mesh = mesh;
 }
 
 var Rays = function(){
-	var mesh;
-	rayMat = new THREE.ShaderMaterial( {
-		transparent: true,
-		wireframe: true,
-		// shading: THREE.FlatShading,
-		uniforms: {
-			"uTime" : { type: "f", value: 0.0 },
-			"tPerlin" : { type: "t", value: perlinNoise },
-			"fSpeed" : { type: "f", value: 66.}
-		},
-		depthTest: false,
-		vertexShader: document.getElementById( 'lightningVertex' ).textContent,
-		fragmentShader: document.getElementById( 'raysFragment' ).textContent
-	} );
+  var mesh;
+  rayMat = new THREE.ShaderMaterial( {
+    transparent: true,
+    wireframe: true,
+    // shading: THREE.FlatShading,
+    uniforms: {
+      "uTime" : { type: "f", value: 0.0 },
+      "tPerlin" : { type: "t", value: perlinNoise },
+      "fSpeed" : { type: "f", value: 66.}
+    },
+    depthTest: false,
+    vertexShader: document.getElementById( 'lightningVertex' ).textContent,
+    fragmentShader: document.getElementById( 'raysFragment' ).textContent
+  } );
 
-	var geom = new THREE.CircleBufferGeometry(5, 256, 256);
-	mesh = new THREE.Mesh(geom, rayMat);
+  var geom = new THREE.CircleBufferGeometry(5, 256, 256);
+  mesh = new THREE.Mesh(geom, rayMat);
   mesh.rotation.x += Math.PI/2;
-	this.mesh = mesh;
+  this.mesh = mesh;
 } 
 
 var Aurora = function(){
@@ -177,13 +177,13 @@ var Aurora = function(){
 }
 
 var Sun = function(){
-	var sunGeom = new THREE.SphereGeometry(1, 16, 16);
-	var sunMat = new THREE.MeshBasicMaterial({color: 0xededed});
+  var sunGeom = new THREE.SphereGeometry(1, 16, 16);
+  var sunMat = new THREE.MeshBasicMaterial({color: 0xededed});
 
-	var mesh = new THREE.Mesh(sunGeom, sunMat);
-	// mesh.position.set(0, .9, 0);
+  var mesh = new THREE.Mesh(sunGeom, sunMat);
+  // mesh.position.set(0, .9, 0);
 
-	this.mesh = mesh;
+  this.mesh = mesh;
 }
 
 var ShapeStorm = function(){
@@ -254,7 +254,64 @@ var OblivionSphere = function(){
   this.mesh = mesh;
 }
 
+function ParticleObject(geometry, color, size){
+  var geom = geometry;
+  var mat = new THREE.MeshBasicMaterial();
+  var globe = new THREE.Mesh(geom, mat);
 
+  var particleMat = new THREE.PointsMaterial({size: size, color: color, transparent: true});
+  var particleGlobe = new THREE.Points(geometry, particleMat);
+  
+  var vertices = geometry.vertices
+  var angles = [];
+  for (var i=0; i<vertices.length; i++){
+    angles[i] = Math.random() * 2 * Math.PI; //assign random angle
+  }
+
+  this.mesh = particleGlobe;
+
+  this.angles = angles;
+  this.tick = Math.PI / 180;
+  this.speed = 1;
+  this.autoHover = false;
+
+  this.hoverPoints = function(){
+      if(!this.autoHover)
+        return;
+
+      var vertices = this.mesh.geometry.vertices;
+      var p, angle, tick = this.tick;
+      for (var i=0; i<vertices.length; i++){
+        this.angles[i]+= this.speed*2*tick;
+        p = vertices[i];
+        p.x += this.speed*.0025*Math.cos(this.angles[i]);
+        p.y += this.speed*.0025*Math.sin(this.angles[i]);
+        p.z += this.speed*.0025*Math.sin(this.angles[i]);
+        this.mesh.geometry.verticesNeedUpdate = true;
+      }
+  }
+
+  this.highlight = function(color){
+    var _this = this;
+
+    var rgbCur = this.mesh.material.color;
+
+    _this.mesh.material.color.r = color.r;
+    _this.mesh.material.color.g = color.g;
+    _this.mesh.material.color.b = color.b;
+
+    // var tween = new TWEEN.Tween(rgbCur).to(rgbTarget, 150);
+    // tween.onUpdate(function(){
+    // });
+    // tween.start();
+  }
+
+  this.update = function(){
+    this.hoverPoints();
+    this.mesh.rotation.y += .0025*this.speed*this.speed*this.speed;
+    this.mesh.rotation.x += .0025*this.speed*this.speed*this.speed;
+  }
+}
 
 
 
