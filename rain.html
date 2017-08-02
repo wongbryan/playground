@@ -39,6 +39,7 @@
 	<div id="container"></div>
 </body>
 
+<script src="bower_components/tween.js/src/Tween.js"></script>
 <script src="bower_components/three.js/build/three.js"></script>
 <script src="bower_components/three.js/examples/js/controls/FirstPersonControls.js"></script>
 <script src="js/classes.js"></script>
@@ -54,12 +55,34 @@
 	var analyser;
 	var sound;
 
+	var mixer;
+
 	var loadedBox = false;
 
 	function resize(){
 		camera.aspect = window.innerWidth / window.innerHeight;
 		camera.updateProjectionMatrix();
 		renderer.setSize( window.innerWidth, window.innerHeight );
+	}
+
+	function morph(){
+		var newGeom = new THREE.SphereGeometry(2.5, 64, 64);
+		var curGeom = box.mesh.geometry;
+
+		var targetVertices = newGeom.vertices;
+		var curVertices = curGeom.vertices;
+		var less = targetVertices.length < curVertices.length ? targetVertices : curVertices;
+
+		var tween;
+		var cur, target;
+		for (var i=0; i<less.length; i++){
+			cur = curVertices[i];
+			target = targetVertices[i];
+
+			tween = new TWEEN.Tween(cur).to(target, 1000);
+			tween.start();
+			box.mesh.geometry.verticesNeedUpdate = true;
+		}
 	}
 
 	function init() {
@@ -117,6 +140,7 @@
 			    box.mesh.add(sound);
 			    scene.add( box.mesh );
 			    loadedBox = true;
+			    mixer = new THREE.AnimationMixer(box.mesh);
 			}
 		)
 
@@ -147,6 +171,8 @@
 			box.autoHover = true;
 			box.speed = data/55;
 		}
+
+		TWEEN.update();
 	}
 
 	function animate(){
