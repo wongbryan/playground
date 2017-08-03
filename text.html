@@ -14,21 +14,63 @@
 	<div id="container"></div>
 </body>
 
+<script id="textVertex" type="vsh">
+	uniform float height;
+	uniform float time;
+
+	void main(){
+		gl_Position = projectionMatrix * modelViewMatrix * vec4(position.xy, position.z + height*sin(time), 1.);
+	}
+</script>
+
+<script id="textFragment" type="fsh">
+	void main(){
+		gl_FragColor = vec4(1., 1., 1., 1.);
+	}
+</script>
+
 <script src="bower_components/three.js/build/three.js"></script>
 <script src="bower_components/three.js/examples/js/controls/TrackballControls.js"></script>
-<script src="js/classes.js"></script>
+<script src="bower_components/tween.js/src/Tween.js"></script>
+<script src="js/classes/text.js"></script>
 <script>
 	var camera, scene, renderer, controls, gui;
-	var angle = 0;
 	var clock = new THREE.Clock();
-	var time;
 
-	var box;
+	var raycaster = new THREE.Raycaster();
+	var mouse = new THREE.Vector2;
+
+	var text;
 
 	function resize(){
 		camera.aspect = window.innerWidth / window.innerHeight;
 		camera.updateProjectionMatrix();
 		renderer.setSize( window.innerWidth, window.innerHeight );
+	}
+
+	function onMouseMove(){
+		mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+		mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+		raycaster.setFromCamera(mouse, camera);
+
+		var intersects = raycaster.intersectObjects(text.wordsMeshes, true);
+		
+		if (intersects.length > 0){
+			var mesh = intersects[0].object;
+			var index;
+			for(var i=0; i<text.wordsMeshes.length; i++){
+				if (mesh == text.wordsMeshes[i]){
+					index = i;
+					break;
+				}
+			}
+			text.wordsObjects[index].highlight();
+		}
+		else{
+			for (var i=0; i<text.wordsObjects.length; i++){
+				text.wordsObjects[i].dim();
+			}
+		}
 	}
 
 	function init() {
@@ -65,34 +107,19 @@
 		    box.position.z = 0;
 		    // scene.add( box );
 
-		    var loader = new THREE.FontLoader();
-
-			loader.load( 'assets/apex.json', function ( font ) {
-
-				var geometry = new THREE.TextGeometry( 'OSWALD', {
-					font: font,
-					size: 5,
-					height: .5,
-					curveSegments: 12,
-					bevelEnabled: true,
-					bevelThickness: .2,
-					bevelSize: .2,
-					bevelSegments: .2
-				} );
-				geometry.center();
-
-				var mat = new THREE.MeshPhongMaterial({color: 0xff0000});
-				var mesh = new THREE.Mesh(geometry, mat);
-				scene.add(mesh);
-			} );
-
+		    text = new TextObj('Apex is this font', -13, 0, 0);
 
 			window.addEventListener('resize', resize);
+			window.addEventListener('mousemove', onMouseMove);
 		}
 
 		function update(){
+			text.update();
+
 			camera.lookAt(scene.position);
 			controls.update();
+
+			TWEEN.update();
 		}
 
 		function animate(){
