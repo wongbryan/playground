@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Text</title>
+</head>
+
+<style>
+	body{
+		margin: 0;
+		overflow: hidden;
+	}
+</style>
+<body>
+	<div id="container"></div>
+</body>
+
+<script src="bower_components/three.js/build/three.js"></script>
+<script src="bower_components/three.js/examples/js/controls/TrackballControls.js"></script>
+<script src="js/classes.js"></script>
+<script>
+	var camera, scene, renderer, controls, gui;
+	var angle = 0;
+	var clock = new THREE.Clock();
+	var time;
+
+	var box;
+
+	function resize(){
+		camera.aspect = window.innerWidth / window.innerHeight;
+		camera.updateProjectionMatrix();
+		renderer.setSize( window.innerWidth, window.innerHeight );
+	}
+
+	function init() {
+			var container = document.getElementById( 'container' );
+			renderer = new THREE.WebGLRenderer({antialias: true});
+			renderer.shadowMap.enabled = true;
+			renderer.shadowMap.type = THREE.PCSoftShadowMap;
+			renderer.setPixelRatio( window.devicePixelRatio );
+			renderer.setSize( window.innerWidth, window.innerHeight);
+			renderer.setClearColor(0xededed);
+			container.appendChild( renderer.domElement );
+			
+			camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
+			camera.position.set(0, 0, 50);
+			controls = new THREE.TrackballControls(camera, renderer.domElement);
+			controls.rotateSpeed = 2.0;
+			controls.panSpeed = 0.8;
+			controls.zoomSpeed = 1.5;
+
+			scene = new THREE.Scene();
+
+			var directionalLight = new THREE.DirectionalLight(0xffffff, .7);
+			directionalLight.position.set(1, -1, 0).normalize();
+			directionalLight.castShadow = true;
+			var ambientLight = new THREE.AmbientLight(0xffffff);
+			var pointLight = new THREE.PointLight(0xffffff);
+			pointLight.position.set(0, 0, 0);
+
+			// the box in the scene that rotatates around the light
+		    var geometry = new THREE.BoxBufferGeometry( 1, 1, 1 );
+		    var material = new THREE.MeshPhongMaterial( { color: 0x111111 } );
+		    box = new THREE.Mesh( geometry, material );
+		    box.scale.set(10, 10, 10);
+		    box.position.z = 0;
+		    // scene.add( box );
+
+		    var loader = new THREE.FontLoader();
+
+			loader.load( 'assets/apex.json', function ( font ) {
+
+				var geometry = new THREE.TextGeometry( 'OSWALD', {
+					font: font,
+					size: 5,
+					height: .5,
+					curveSegments: 12,
+					bevelEnabled: true,
+					bevelThickness: .2,
+					bevelSize: .2,
+					bevelSegments: .2
+				} );
+				geometry.center();
+
+				var mat = new THREE.MeshPhongMaterial({color: 0xff0000});
+				var mesh = new THREE.Mesh(geometry, mat);
+				scene.add(mesh);
+			} );
+
+
+			window.addEventListener('resize', resize);
+		}
+
+		function update(){
+			camera.lookAt(scene.position);
+			controls.update();
+		}
+
+		function animate(){
+			update();
+			renderer.render(scene, camera);
+			window.requestAnimationFrame(animate);
+		}
+
+		init();
+		animate();
+</script>
+</html>
