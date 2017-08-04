@@ -1,4 +1,4 @@
-var TextObj = function(string, x, y, z){
+var TextObj = function(material, string, x, y, z){
 	var wordsArray = string.split(" ");
 	var wordsObjectArray = [];
 	var wordsMeshesArray = [];
@@ -7,18 +7,9 @@ var TextObj = function(string, x, y, z){
 	this.loaded = false;
 	var _this = this;
 
-	var mat = new THREE.ShaderMaterial({
-		uniforms : {
-			height : { type : 'f', value : 5.0},
-			time : { type : 'f', value : 0.0}
-		},
-		vertexShader : document.getElementById('textVertex').textContent,
-		fragmentShader : document.getElementById('textFragment').textContent
-	});
-
 	var materials = [];
 	for (var i=0; i<wordsArray.length; i++){ //give each word a separate material
-		materials.push(mat.clone());
+		materials.push(material.clone());
 	}	
 
 	var loader = new THREE.FontLoader();
@@ -70,26 +61,26 @@ var SingleWord = function(geometry, material, x, y, z){
 	this.mesh = mesh;
 
 	this.highlight = function(){
-		var cur = {time : this.mesh.material.uniforms.time.value };
-		var target = { time : Math.PI/2 };
+		var cur = {z : this.mesh.position.z };
+		var target = { z : cur.z + 2.5};
 		var tween = new TWEEN.Tween(cur).to(target, 1200);
 
 		var _this = this;
 		tween.onUpdate(function(){
-			_this.mesh.material.uniforms.time.value = cur.time;
+			_this.mesh.position.z = cur.z;
 		});
 		tween.easing(TWEEN.Easing.Exponential.Out);
 		tween.start();
 	}
 
 	this.dim = function(){
-		var cur = {time : this.mesh.material.uniforms.time.value };
-		var target = { time : 0 };
+		var cur = {z : this.mesh.position.z };
+		var target = { z : 0};
 		var tween = new TWEEN.Tween(cur).to(target, 1200);
 
 		var _this = this;
 		tween.onUpdate(function(){
-			_this.mesh.material.uniforms.time.value = cur.time;
+			_this.mesh.position.z = cur.z;
 		});
 		tween.easing(TWEEN.Easing.Exponential.Out);
 		tween.start();
