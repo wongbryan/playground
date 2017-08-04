@@ -21,6 +21,8 @@
 	uniform float amplitude;
 
 	void main(){
+		gl_PointSize = 2.;
+		
 		gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
 	}
 </script>
@@ -198,7 +200,7 @@
 					var positionX = start+offsetX*(i-.5);
 					start += offsetX;
 
-					var text = new THREE.Mesh(bufferGeometry, glowMat);
+					var text = new THREE.Points(bufferGeometry, glowMat);
 					text.position.x = positionX;
 
 					group.add(text);
