@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Morph</title>
+</head>
+
+<style>
+	body{
+		margin: 0;
+		overflow: hidden;
+	}
+
+	#loading{
+		background-color: black;
+		height: 100vh;
+		width: 100vw;
+		position: fixed;
+		z-index: 2000;
+	}
+
+	#loading h1 {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		color: white;
+		font-family: sans-serif;
+		font-size: 1em;
+		font-weight: lighter;
+		text-align: center;
+	}
+
+	a{
+		font-family: Helvetica;
+		font-size: 1em;
+		position: fixed;
+		margin: 25px;
+	}
+
+	a:first-child{
+		left: 0;
+		bottom: 0;
+	}
+
+	a:nth-child(2){
+		right: 0;
+		bottom: 0;
+		transition: all .25s;
+	}
+
+	a:nth-child(2):hover{
+		cursor: pointer;
+		color: #486686;
+	}
+</style>
+<body>
+	<div id="loading"><h1>LOADING</h1></div>
+	<a>click to object morph</a>
+	<a onclick="sound.play()">play</a>
+	<div id="container"></div>
+</body>
+
+<script type="vsh" id="vertexShader">
+	uniform float time;
+	uniform float amplitude;
+	uniform float magnitude;
+	attribute vec3 targetPosition;
+	attribute float angle;
+
+	void main(){
+		gl_PointSize = 2.;
+
+		vec3 direction = magnitude*vec3(cos(time+angle), sin(time+angle), cos(time+angle));
+
+		vec3 morphedPosition = position; //set morph to initial position
+		morphedPosition += (targetPosition-position) * amplitude; //amplitude changes from 0->1
+		gl_Position = projectionMatrix * modelViewMatrix * vec4(morphedPosition + direction, 1.);
+	}
+</script>
+
+<script type="fsh" id="fragmentShader">
+	uniform vec3 color;
+	uniform float opacity;
+
+	void main(){
+		gl_FragColor = vec4(vec3(color), opacity);
+	}
+</script>
+
+<script src="bower_components/tween.js/src/Tween.js"></script>
+<script src="bower_components/three.js/build/three.js"></script>
+<script src="bower_components/three.js/examples/js/controls/TrackballControls.js"></script>
+<script>
+
+/*DATA PARAMS*/
+
+const MAX_VERTICES = 200000;
+
+var GEOMETRIES = {
+	Array : [],
+	current : 0
+};
+
+var sphereGeom = new THREE.SphereGeometry(2.5, 256, 256);
+var SPHERE_VERTICES = sphereGeom.vertices;
+GEOMETRIES.Array.push(sphereGeom);
+
+var boxGeom = new THREE.BoxGeometry(2.5, 2.5, 2.5, 256, 256);
+GEOMETRIES.Array.push(boxGeom);
+
+/*SET UP PARTICLE OBJECT*/
+
+	function ParticleObject(geometry, color, size){
+
+	  var geom = new THREE.BufferGeometry();
+	  geom.fromGeometry(geometry); //defines the position attribute for us, along with others
+
+	  var vertexCount = geom.attributes['position'].count;
+	  var initialTargetVertexCount = SPHERE_VERTICES.length;
+
+	  //DEFINE POSITION ATTRIBUTE (Done for us)
+
+	  geom.attributes['position'].dynamic = true;
+
+	  //DEFINE ANGLE ATTRIBUTE
+
+	  var angles = new Float32Array(MAX_VERTICES);
+
+	  for (var i=0; i<vertexCount; i++){
+	    var angle = Math.random() * 2 * Math.PI;
+	    angles[i] = angle;
+	  }
+
+	  geom.addAttribute('angle', new THREE.BufferAttribute(angles, 1));
+
+	  //DEFINE TARGET POSITION ATTRIBUTE
+
+	  var targetVertices = new Float32Array(MAX_VERTICES * 3);
+
+	  for (var i=0; i<SPHERE_VERTICES.length; i++){
+	    var target = SPHERE_VERTICES[i];
+	    var index = i*3; //for every vertex, move forward 3 spots in targetPositions array
+
+	    targetVertices[index] = target.x;
+	    targetVertices[index+1] = target.y;
+	    targetVertices[index+2] = target.z;
+	  }
+
+	  geom.addAttribute('targetPosition', new THREE.BufferAttribute(targetVertices, 3)); //sphere
+	  geom.attributes['targetPosition'].dynamic = true;
+
+	  //DEFINE UNIFORMS AND SHADER MATERIAL
+
+	  var texture = new THREE.TextureLoader().load('assets/rgb texture.png');
+	  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+	  var uniforms = {
+	    time : { type : 'f', value : 0.0 },
+	    amplitude : { type : 'f', value : 0.0 }, //how far along the morph it is
+	    color : { type : 'v3', value : COLORS.Black},
+	    magnitude : { type : 'f', value : 5.},
+	    opacity : { type : 'f', value : .5}
+	  };
+
+	  var particleMat = new THREE.ShaderMaterial({
+	    wireframe: true,
+	    transparent: true,
+	    uniforms : uniforms,
+	    vertexShader : document.getElementById('vertexShader').textContent,
+	    fragmentShader : document.getElementById('fragmentShader').textContent
+	  });
+
+	  //CREATE MESH
+
+	  var particleGlobe = new THREE.Points(geom, particleMat);
+
+	  this.mesh = particleGlobe;
+
+	  this.speed = 1;
+
+	  this.hoverPoints = function(){
+	      if(!this.autoHover)
+	        return;
+
+	      var vertices = this.mesh.geometry.vertices;
+	      var p, angle, tick = this.tick;
+	      for (var i=0; i<vertices.length; i++){
+	        this.angles[i]+= this.speed*2*tick;
+	        p = vertices[i];
+	        p.x += this.speed*.0025*Math.cos(this.angles[i]);
+	        p.y += this.speed*.0025*Math.sin(this.angles[i]);
+	        p.z += this.speed*.0025*Math.sin(this.angles[i]);
+	        this.mesh.geometry.verticesNeedUpdate = true;
+	      }
+	  }
+
+	  this.highlight = function(color){
+	    var curColor = this.mesh.material.uniforms['color'].value;
+	    var targetColor = color;
+
+	    var _this = this;
+
+	    var tween = new TWEEN.Tween(curColor).to(targetColor, 150);
+
+	    tween.start();
+	  }
+
+	  this.morph = function(geometry){ //pass in a geometry
+	    //GET TARGET
+	    var targetVertices = geometry.vertices;
+
+	    //GET CURRENT GEOMETRY, CREATE A NEW ARRAY TO HOLD TARGETS
+	    //Create a new array in case the next geometry has a different # of vertices
+	    var geom = this.mesh.geometry;
+	    var currentVertexCount = geom.attributes['position'].count;
+	    var newTargets = new Float32Array(MAX_VERTICES * 3);
+
+	    for (var i=0; i<targetVertices.length; i++){
+	      var target = targetVertices[i];
+	      var index = i*3;
+
+	      //UPDATE TARGET VERTICES
+	      newTargets[index] = target.x;
+	      newTargets[index+1] = target.y;
+	      newTargets[index+2] = target.z;
+	    }
+
+	    geom.attributes['targetPosition'] = new THREE.BufferAttribute(newTargets, 3);
+	    geom.attributes['targetPosition'].needsUpdate = true;
+
+	    this.mesh.material.uniforms['amplitude'].value = 0.0;
+
+	    var _this = this;
+	    var cur = {amplitude : 0.};
+	    var target = {amplitude : 1.0 };
+	    var tween = new TWEEN.Tween(cur).to(target, 1500);
+	    tween.easing(TWEEN.Easing.Elastic.Out);
+
+	    tween.onComplete(function(){
+	      geom.attributes['position'] = new THREE.BufferAttribute(newTargets, 3);
+	      geom.attributes['position'].needsUpdate = true;
+	    });
+
+	    tween.onUpdate(function(){
+	      _this.mesh.material.uniforms['amplitude'].value = cur.amplitude;
+	    });
+	    tween.start();
+
+	  }
+
+	  this.update = function(){
+	    this.mesh.material.uniforms['time'].value += .1;
+	    this.mesh.rotation.y += .0025*this.speed*this.speed*this.speed;
+	    this.mesh.rotation.x += .0025*this.speed*this.speed*this.speed;
+	  }
+	}
+
+/*SET UP SCENE*/
+
+	var camera, scene, renderer, controls, gui;
+	var raycaster = new THREE.Raycaster();
+	var mouse = new THREE.Vector2;
+	var angle = 0;
+	var clock = new THREE.Clock();
+	var time;
+
+	var model;
+	var box;
+	var analyser;
+	var sound;
+
+	var boxMeshesArray = [];
+
+	const COLORS = {
+		Black: new THREE.Color(0x1c1c1c),
+		Red: new THREE.Color(0xcc390e)
+	};
+
+	var loadedBox = false;
+
+	function onMouseMove() {
+		mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+		mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+		raycaster.setFromCamera(mouse, camera);
+
+		var intersects = raycaster.intersectObjects(boxMeshesArray, false);
+
+		if (!loadedBox)
+			return;
+
+		if (intersects.length > 0){
+			box.highlight(COLORS.Red);
+		}
+		else{
+			box.highlight(COLORS.Black);
+		}
+	}
+
+	function onMouseDown(){
+		mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+		mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+		raycaster.setFromCamera(mouse, camera);
+
+		var intersects = raycaster.intersectObjects(boxMeshesArray, false);
+
+		if (!loadedBox)
+			return;
+
+		if (intersects.length > 0){
+			var random = Math.floor(Math.random() * 3);
+			while (random == GEOMETRIES.current)
+				random = Math.floor(Math.random() * 3);
+			box.morph(GEOMETRIES.Array[random]);
+			GEOMETRIES.current = random;
+		}
+	}
+
+	function resize(){
+		camera.aspect = window.innerWidth / window.innerHeight;
+		camera.updateProjectionMatrix();
+		renderer.setSize( window.innerWidth, window.innerHeight );
+	}
+
+	function init() {
+		var container = document.getElementById( 'container' );
+		renderer = new THREE.WebGLRenderer({antialias: true});
+		renderer.shadowMap.enabled = true;
+		renderer.shadowMap.type = THREE.PCSoftShadowMap;
+		renderer.setPixelRatio( window.devicePixelRatio );
+		renderer.setSize( window.innerWidth, window.innerHeight);
+		renderer.setClearColor(0xededed);
+		container.appendChild( renderer.domElement );
+		
+		var listener = new THREE.AudioListener();
+		camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
+		camera.add(listener);
+		camera.position.set(0, 0, 40);
+
+		controls = new THREE.TrackballControls(camera, renderer.domElement);
+
+		scene = new THREE.Scene();
+
+		var directionalLight = new THREE.DirectionalLight(0xffffff, .7);
+		directionalLight.position.set(1, -1, 0).normalize();
+		directionalLight.castShadow = true;
+		var ambientLight = new THREE.AmbientLight(0xffffff);
+		var pointLight = new THREE.PointLight(0xffffff);
+		pointLight.position.set(0, 0, 0);
+
+		scene.add(ambientLight);
+		scene.add(directionalLight);
+		scene.add(pointLight);
+
+		var audioLoader = new THREE.AudioLoader();
+		sound = new THREE.PositionalAudio(listener);
+		audioLoader.load('assets/elevator.mp3', function(buffer){
+			sound.setBuffer(buffer);
+			sound.setRefDistance(20);
+			sound.play();
+		});
+
+		var geom;
+		var modelLoader = new THREE.JSONLoader();
+		modelLoader.load(
+			'assets/ninja.json',
+
+			function(geometry, materials){
+				geom = geometry;
+				box = new ParticleObject(geom, 0x486686, .05);
+			    box.mesh.position.set(0, 0, 0);
+			    box.mesh.scale.set(5, 5, 5);
+			    box.mesh.rotation.y = Math.PI/3;
+			    box.mesh.add(sound);
+			    boxMeshesArray.push(box.mesh);
+			    scene.add( box.mesh );
+			    loadedBox = true;
+			    GEOMETRIES.Array.push(geometry);
+
+			    var loading = document.getElementById('loading');
+			    document.body.removeChild(loading);
+
+			    // sound.play();
+			}
+		)
+
+	    // geometry = new THREE.SphereGeometry(1, 64, 64);
+
+	    camera.position.set(-38.9, 0, -.4);
+
+	    analyser = new THREE.AudioAnalyser(sound, 32);
+
+		window.addEventListener('resize', resize);
+		// window.addEventListener('mousemove', onMouseMove);
+		renderer.domElement.addEventListener('mousedown', onMouseDown);
+	}
+
+	function update(){
+		controls.update();
+		camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+		if (!loadedBox)
+			return;
+
+		box.update();
+
+		var data = analyser.getAverageFrequency();
+		if (data < 80){
+			box.highlight(COLORS.Black);
+			box.mesh.material.uniforms.magnitude.value = 0.;
+			box.mesh.material.uniforms.opacity.value = 0.05;
+			box.speed = 1;
+		}
+		else if (data < 100){
+			box.highlight(COLORS.Red);
+			box.mesh.material.uniforms.magnitude.value = data/7500;
+			box.mesh.material.uniforms.opacity.value = data/750;
+			box.speed = 1.5;
+		}
+		else{
+			box.mesh.material.uniforms.magnitude.value = data/5500;
+			box.mesh.material.uniforms.opacity.value = data/550;
+			box.speed = data/55;
+		}
+
+		TWEEN.update();
+	}
+
+	function animate(){
+		update();
+		renderer.render(scene, camera);
+		window.requestAnimationFrame(animate);
+	}
+
+	init();
+	animate();
+
+</script>
+</html>
