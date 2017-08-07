@@ -14,27 +14,6 @@
 	<div id="container"></div>
 </body>
 
-<script id="textVertex" type="vsh">
-	uniform float speed;
-	uniform float time;
-	uniform float height;
-	uniform float amplitude;
-
-	void main(){
-		gl_PointSize = 2.;
-		
-		gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
-	}
-</script>
-
-<script id="textFragment" type="fsh">
-	uniform float opacity;
-
-	void main(){
-		gl_FragColor = vec4(0., 0., 0., opacity);
-	}
-</script>
-
 <script src="bower_components/three.js/build/three.js"></script>
 <script src="bower_components/three.js/examples/js/controls/TrackballControls.js"></script>
 <script src="bower_components/tween.js/src/Tween.js"></script>
@@ -74,15 +53,11 @@
 				}
 			}
 			text.wordsObjects[index].highlight();
-			changeOpacity(.5);
-			changeAmplitude(1.0);
 		}
 		else{
 			for (var i=0; i<text.wordsObjects.length; i++){
 				text.wordsObjects[i].dim();
 			}
-			changeOpacity(0.2);
-			changeAmplitude(0.0);
 		}
 	}
 
@@ -98,6 +73,7 @@
 			
 			camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
 			camera.position.set(0, 0, 50);
+
 			controls = new THREE.TrackballControls(camera, renderer.domElement);
 			controls.rotateSpeed = 2.0;
 			controls.panSpeed = 0.8;
@@ -120,135 +96,16 @@
 		    box.position.z = 0;
 		    // scene.add( box );
 
-		    var texture = new THREE.TextureLoader().load('assets/rgb texture.png');
-		    texture.wrapT = texture.wrapS = THREE.RepeatWrapping;
-		    var mat = new THREE.MeshBasicMaterial({color: 0xffffff});
-
-		    var glowMat = new THREE.ShaderMaterial({
-		    	transparent: true,
-		    	// wireframe: true,
-				uniforms : {
-					height : { type : 'f', value : .1 },
-					speed : { type : 'f', value : 1.0 },
-					time : { type : 'f', value : 0.0 },
-					opacity : { type : 'f', value : .1 },
-					amplitude : { type : 'f', value : 0.0 }
-				},
-				vertexShader : document.getElementById('textVertex').textContent,
-				fragmentShader : document.getElementById('textFragment').textContent
-			});
-
-			var string = 'Apex is this font';
-			var words = string.split(" ");
-
-			var fontLoader = new THREE.FontLoader();
-			fontLoader.load( '/assets/apex.json', function ( font ) {
-				var start = 0; //start position of the first word
-				var group = new THREE.Group();
-				var params = {
-					font: font,
-					size: 2,
-					height: .15,
-					curveSegments: 16,
-					bevelEnabled: false,
-					bevelThickness: .2, 
-					bevelSize: .2,
-					bevelSegments: .2
-				};
-
-				for (var i=0; i<words.length; i++){
-					var geometry = new THREE.TextGeometry( words[i], params );
-					// geometry.center();
-					geometry.computeBoundingBox();
-
-					var vertices = geometry.vertices;
-					var vertexCount = geometry.vertices.length;
-
-					var bufferGeometry = new THREE.BufferGeometry();
-					bufferGeometry.fromGeometry(geometry);
-
-					var vertexPositions = new Float32Array(vertexCount * 3 * 2); //duplicate all the vertices
-					var vertexTargets = new Float32Array(vertexCount*3*2); 
-					for(var i=0; i<vertexCount; i++){
-						var index = i*6; 
-
-						//populate 6 spots with two of the same vertex
-
-						vertexPositions[index] = vertices[i].x;
-						vertexPositions[index+1] = vertices[i].y;
-						vertexPositions[index+2] = vertices[i].z;
-
-						vertexPositions[index+3] = vertices[i].x;
-						vertexPositions[index+4] = vertices[i].y;
-						vertexPositions[index+5] = vertices[i].z;
-
-						//populate targets in same way, except skip every second vertex
-
-						vertexTargets[index] = vertices[i].x;
-						vertexTargets[index+1] = vertices[i].y;
-						vertexTargets[index+2] = vertices[i].z + 5; //add five
-
-						vertexTargets[index+3] = vertices[i].x;
-						vertexTargets[index+4] = vertices[i].y;
-						vertexTargets[index+5] = vertices[i].z;
-					}
-
-					bufferGeometry.addAttribute('position', new THREE.BufferAttribute(vertexPositions, 3));
-					bufferGeometry.addAttribute('targetPosition', new THREE.BufferAttribute(vertexTargets, 3));
-
-					var offsetX = geometry.boundingBox.max.x - geometry.boundingBox.min.x;
-					var positionX = start+offsetX*(i-.5);
-					start += offsetX;
-
-					var text = new THREE.Points(bufferGeometry, glowMat);
-					text.position.x = positionX;
-
-					group.add(text);
-					group.position.set(-14, 0, -2);
-
-					glowText.push(text);
-				}
-				scene.add(group);
-				glowLoaded = true;
-			} );
+			var mat = new THREE.MeshBasicMaterial({color : 0xffffff});
 
 		    text = new TextObj(mat, 'Apex is this font', -14, 0, 0);
-
-		    // camera.position.set(new THREE.Vector3(-20.26, -20.76, 26.4));
-		    // camera.lookAt(new THREE.Vector3(0, 0, 0));
 
 			window.addEventListener('resize', resize);
 			window.addEventListener('mousemove', onMouseMove);
 		}
 
-		function changeAmplitude(targetAmp){
-			var uniforms = glowText[0].material.uniforms;
-			var cur = { amp : uniforms.amplitude.value };
-			var target = { amp : targetAmp };
-			var tween = new TWEEN.Tween(cur).to(target, 300);
-			tween.onUpdate(function(){
-				uniforms.amplitude.value = cur.amp;
-			});
-			tween.start();
-		}
-
-		function changeOpacity(targetOpacity){
-			var uniforms = glowText[0].material.uniforms;
-			var cur = { opacity : uniforms.opacity.value };
-			var target = { opacity : targetOpacity };
-			var tween = new TWEEN.Tween(cur).to(target, 300);
-			tween.onUpdate(function(){
-				uniforms.opacity.value = cur.opacity;
-			});
-			tween.start();
-		}
-
 		function update(){
 			text.update();
-			if (!glowLoaded)
-				return;
-			glowText[0].material.uniforms.time.value += .01;
-
 			camera.lookAt(scene.position);
 			controls.update();
 
