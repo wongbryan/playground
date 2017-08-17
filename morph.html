@@ -377,6 +377,8 @@ GEOMETRIES.Array.push(boxGeom);
 
 			    var loading = document.getElementById('loading');
 			    document.body.removeChild(loading);
+			    box.morph(GEOMETRIES.Array[2]);
+			    GEOMETRIES.current = 2;
 
 			    // sound.play();
 			}
