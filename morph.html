@@ -352,7 +352,7 @@ GEOMETRIES.Array.push(boxGeom);
 
 		var audioLoader = new THREE.AudioLoader();
 		sound = new THREE.PositionalAudio(listener);
-		audioLoader.load('assets/elevator.mp3', function(buffer){
+		audioLoader.load('assets/rain.mp3', function(buffer){
 			sound.setBuffer(buffer);
 			sound.setRefDistance(20);
 			sound.play();
@@ -361,7 +361,7 @@ GEOMETRIES.Array.push(boxGeom);
 		var geom;
 		var modelLoader = new THREE.JSONLoader();
 		modelLoader.load(
-			'assets/ninja.json',
+			'assets/gun.json',
 
 			function(geometry, materials){
 				geom = geometry;
