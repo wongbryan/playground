@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>FBM Terrain Height Map</title>
+</head>
+
+<style>
+	body{
+		margin: 0;
+		overflow: hidden;
+	}
+</style>
+<body>
+	<div id="container"></div>
+</body>
+
+<script type="vsh" id="vertexShader">
+	uniform sampler2D texture;
+	uniform float time;
+	uniform float speed;
+
+	varying vec3 pos;
+	varying vec2 vUv;
+
+	float random (in vec2 st) { 
+	    return fract(sin(dot(st.xy,
+	                         vec2(12.9898,78.233)))* 
+	        43758.5453123);
+	}
+
+	// Based on Morgan McGuire @morgan3d
+	// https://www.shadertoy.com/view/4dS3Wd
+	float noise (in vec2 st) {
+	    vec2 i = floor(st);
+	    vec2 f = fract(st);
+
+	    // Four corners in 2D of a tile
+	    float a = random(i);
+	    float b = random(i + vec2(1.0, 0.0));
+	    float c = random(i + vec2(0.0, 1.0));
+	    float d = random(i + vec2(1.0, 1.0));
+
+	    vec2 u = f * f * (3.0 - 2.0 * f);
+
+	    return mix(a, b, u.x) + 
+	            (c - a)* u.y * (1.0 - u.x) + 
+	            (d - b) * u.x * u.y;
+	}
+
+	#define OCTAVES 6
+	float fbm ( vec2 st) {
+	    // Initial values
+	    float value = 0.0;
+	    float amplitud = .5;
+	    float frequency = 0.;
+	    //
+	    // Loop of octaves
+	    for (int i = 0; i < OCTAVES; i++) {
+	        value += amplitud * noise(st);
+	        st *= 2.1;
+	        amplitud *= .65;
+	    }
+	    return value;
+	}
+
+	// float pattern( in vec2 p ){
+	// 	vec2 domainModifier = vec2( fbm(p + vec2(0.0, 0.0)), fbm(p + vec2(5.2, 1.3)) ); //using fbm, modify the domain (p)
+	// 	return fbm(p + 4.0*domainModifier);
+	// }
+
+	// float pattern( vec2 p ){
+	// 	vec2 domainModifier = vec2( fbm(p + vec2(0.0, 0.0)), fbm(p + vec2(5.2, 1.3)) ); //modify domain of the domainmodifier...
+	// 	vec2 domainModifier2 = vec2( fbm(p + 4.0*domainModifier + vec2(1.7, 9.2)), fbm(p + 4.0*domainModifier + vec2(8.3, 2.8)));
+	// 	return fbm(p + 4.0*domainModifier2);
+	// }
+
+	float pattern( in vec2 p )
+	  {
+	      vec2 q = vec2( fbm( p + vec2(0.0,0.0) ),
+	                     fbm( p + vec2(5.2,1.3) ) );
+
+	      vec2 r = vec2( fbm( p + 4.0*q + vec2(1.7,9.2) ),
+	                     fbm( p + 4.0*q + vec2(8.3,2.8) ) );
+
+	      return fbm( p + 4.0*r );
+	  }
+
+	void main(){
+		vUv = uv + time;
+		pos = position;
+
+		float n = pattern(pos.xy);
+
+		gl_Position = projectionMatrix * modelViewMatrix * vec4(position + normal*n*.035, 1.);
+	}
+</script>
+
+<script type="fsh" id="fragmentShader">
+	uniform sampler2D texture;
+
+	varying vec2 vUv;
+	varying vec3 pos;
+
+	float random (in vec2 st) { 
+	    return fract(sin(dot(st.xy,
+	                         vec2(12.9898,78.233)))* 
+	        43758.5453123);
+	}
+
+	// Based on Morgan McGuire @morgan3d
+	// https://www.shadertoy.com/view/4dS3Wd
+	float noise (in vec2 st) {
+	    vec2 i = floor(st);
+	    vec2 f = fract(st);
+
+	    // Four corners in 2D of a tile
+	    float a = random(i);
+	    float b = random(i + vec2(1.0, 0.0));
+	    float c = random(i + vec2(0.0, 1.0));
+	    float d = random(i + vec2(1.0, 1.0));
+
+	    vec2 u = f * f * (3.0 - 2.0 * f);
+
+	    return mix(a, b, u.x) + 
+	            (c - a)* u.y * (1.0 - u.x) + 
+	            (d - b) * u.x * u.y;
+	}
+
+	#define OCTAVES 6
+	float fbm ( vec2 st) {
+	    // Initial values
+	    float value = 0.0;
+	    float amplitud = .5;
+	    float frequency = 0.;
+	    //
+	    // Loop of octaves
+	    for (int i = 0; i < OCTAVES; i++) {
+	        value += amplitud * noise(st);
+	        st *= 2.1;
+	        amplitud *= .65;
+	    }
+	    return value;
+	}
+
+	// float pattern( in vec2 p ){
+	// 	vec2 domainModifier = vec2( fbm(p + vec2(0.0, 0.0)), fbm(p + vec2(5.2, 1.3)) ); //using fbm, modify the domain (p)
+	// 	return fbm(p + 4.0*domainModifier);
+	// }
+
+	// float pattern( vec2 p ){
+	// 	vec2 domainModifier = vec2( fbm(p + vec2(0.0, 0.0)), fbm(p + vec2(5.2, 1.3)) ); //modify domain of the domainmodifier...
+	// 	vec2 domainModifier2 = vec2( fbm(p + 4.0*domainModifier + vec2(1.7, 9.2)), fbm(p + 4.0*domainModifier + vec2(8.3, 2.8)));
+	// 	return fbm(p + 4.0*domainModifier2);
+	// }
+
+	float pattern( in vec2 p )
+	  {
+	      vec2 q = vec2( fbm( p + vec2(0.0,0.0) ),
+	                     fbm( p + vec2(5.2,1.3) ) );
+
+	      vec2 r = vec2( fbm( p + 4.0*q + vec2(1.7,9.2) ),
+	                     fbm( p + 4.0*q + vec2(8.3,2.8) ) );
+
+	      return fbm( p + 4.0*r );
+	  }
+
+	void main(){
+		vec2 q; 
+		vec2 r;
+		vec2 j = vec2(0., 1.);
+		float p = pattern(pos.xy);
+
+		vec4 color = texture2D(texture, vUv + p);
+
+		gl_FragColor = vec4(p, p, p, 1.);
+	}
+
+</script>
+
+<script src="bower_components/three.js/build/three.js"></script>
+<script src="bower_components/three.js/examples/js/controls/TrackballControls.js"></script>
+<script src="bower_components/three.js/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="bower_components/three.js/examples/js/shaders/CopyShader.js"></script>
+<script src="bower_components/three.js/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="bower_components/three.js/examples/js/postprocessing/RenderPass.js"></script>
+<script>
+	var camera, scene, renderer, controls, gui;
+	var angle = 0;
+	var clock = new THREE.Clock();
+	var time; var startTime = new Date().getTime();
+
+	var box;
+	var shape;
+
+	function resize(){
+		camera.aspect = window.innerWidth / window.innerHeight;
+		camera.updateProjectionMatrix();
+		renderer.setSize( window.innerWidth, window.innerHeight );
+	}
+
+	function init() {
+		var container = document.getElementById( 'container' );
+		renderer = new THREE.WebGLRenderer({antialias: true});
+		renderer.shadowMap.enabled = true;
+		renderer.shadowMap.type = THREE.PCSoftShadowMap;
+		renderer.setPixelRatio( window.devicePixelRatio );
+		renderer.setSize( window.innerWidth, window.innerHeight);
+		renderer.setClearColor(0xededed);
+		container.appendChild( renderer.domElement );
+		
+		camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
+		camera.position.set(0, 0, 10);
+		controls = new THREE.TrackballControls(camera, renderer.domElement);
+		controls.rotateSpeed = 2.0;
+		controls.panSpeed = 0.8;
+		controls.zoomSpeed = 1.5;
+
+		scene = new THREE.Scene();
+
+		var directionalLight = new THREE.DirectionalLight(0xffffff, .7);
+		directionalLight.position.set(1, -1, 0).normalize();
+		directionalLight.castShadow = true;
+		var ambientLight = new THREE.AmbientLight(0xffffff);
+		var pointLight = new THREE.PointLight(0xffffff);
+		pointLight.position.set(0, 0, 0);
+
+		scene.add(ambientLight);
+		scene.add(directionalLight);
+		scene.add(pointLight);
+
+		var texture = new THREE.TextureLoader().load('assets/me.jpg');
+		texture.wrapT = texture.wrapS = THREE.RepeatWrapping;
+		var geom = new THREE.PlaneBufferGeometry(1, 1, 256, 256);
+		shapeMat = new THREE.ShaderMaterial({
+			transparent: true,
+			uniforms : {
+				"time" : { type: "f", value : 0.0 },
+				"texture" : { type : "t", value : texture},
+				"speed" : { type : "f", value : 1.},
+			},
+			side : THREE.DoubleSide,
+			depthTest: false,
+			vertexShader : document.getElementById('vertexShader').textContent,
+			fragmentShader : document.getElementById('fragmentShader').textContent
+		});
+
+		shape = new THREE.Mesh(geom, shapeMat);
+		var s = 12;
+		shape.scale.set(s, s, s);
+		// shape.position.set()
+		scene.add(shape);
+
+		window.addEventListener('resize', resize);
+	}
+
+	function update(){
+		time = new Date().getTime() - startTime;
+		shapeMat.uniforms['time'].value += .0005;
+		// camera.lookAt(scene.position);
+		controls.update();
+	}
+
+	function animate(){
+		update();
+		renderer.render(scene, camera);
+		window.requestAnimationFrame(animate);
+	}
+
+	init();
+	animate();
+</script>
+</html>
