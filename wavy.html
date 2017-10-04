@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Fractal Brownian Motion</title>
+</head>
+
+<style>
+	body{
+		margin: 0;
+		overflow: hidden;
+	}
+
+	#description{
+		position: absolute;
+		bottom: 10px;
+		left: 10px;
+		color: black;
+		font-family: Helvetica, sans-serif;
+	}
+</style>
+<body>
+	<div id="container"></div>
+	<div id="description">
+		Procedurally generated shape using 2D noise and fractal brownian motion
+	</div>
+</body>
+
+<script type="vsh" id="vertexShader">
+
+	varying vec2 vUv;
+
+	void main() {
+		vUv = uv;
+
+		gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+	}
+
+</script>
+
+<script type="fsh" id="fragmentShader">
+	uniform sampler2D texture;
+	uniform sampler2D noise;
+	uniform float magnitude;
+	uniform float time;
+	uniform float speed;
+	uniform vec2 scale;
+	uniform vec2 mouse;
+	uniform vec2 resolution;
+
+	varying vec2 vUv;
+
+	void main(){
+		vec2 st = gl_FragCoord.xy/resolution;
+
+		/*get displacement w perlin noise*/
+		vec4 map = texture2D(noise, vUv + time*speed*.01);
+		map -= 0.5;
+
+		/*add sin movement to displacement for slight wave effect*/
+		map.xy *= sin(vUv.y*100.+time*speed);
+		map.xy *= scale * .8 * magnitude;
+
+		/*distortion from mouse*/
+		float radius =  .05;
+		float dist = length(st-mouse);
+		float inCircle = step(dist, radius);
+
+		float extraDistort = (radius-dist)*inCircle*.5;
+
+		map += extraDistort;
+
+		vec4 color = texture2D(texture, vec2(vUv.x - map.x, vUv.y - map.y));
+
+		gl_FragColor = color;
+	}
+
+</script>
+
+<script src="bower_components/three.js/build/three.js"></script>
+<script src="bower_components/three.js/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+	var camera, scene, renderer, controls;
+	var SCREEN_WIDTH = window.innerWidth, SCREEN_HEIGHT = window.innerHeight;
+	var angle = 0;
+	var clock = new THREE.Clock();
+	var time; var startTime = new Date().getTime();
+
+	var mouse = new THREE.Vector2();
+	var resolution = new THREE.Vector2(SCREEN_WIDTH*2, SCREEN_HEIGHT*2);
+
+	var box;
+	var shape;
+	var distScale = new THREE.Vector2(1., 1.);
+
+	function onMouseMove( event ) {
+		mouse.x = ( event.clientX / window.innerWidth );
+		mouse.y = -( event.clientY / window.innerHeight ) + 1;
+		console.log("(" + mouse.x + ", " + mouse.y + ")");
+	}
+
+	function resize(){
+		camera.aspect = window.innerWidth / window.innerHeight;
+		camera.updateProjectionMatrix();
+		renderer.setSize( window.innerWidth, window.innerHeight );
+	}
+
+	function init() {
+		var container = document.getElementById( 'container' );
+		renderer = new THREE.WebGLRenderer({antialias: true});
+		renderer.shadowMap.enabled = true;
+		renderer.shadowMap.type = THREE.PCSoftShadowMap;
+		renderer.setPixelRatio( window.devicePixelRatio );
+		renderer.setSize( window.innerWidth, window.innerHeight);
+		renderer.setClearColor(0xededed);
+		container.appendChild( renderer.domElement );
+		
+		camera = new THREE.OrthographicCamera( SCREEN_WIDTH / - 2, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_HEIGHT / - 2, -1000, 1000 );;
+		camera.position.set(0, 0, 1);
+		controls = new THREE.OrbitControls(camera, renderer.domElement);
+		// controls.enableRotate = false;
+		controls.rotateSpeed = 2.0;
+		controls.panSpeed = 0.8;
+		controls.zoomSpeed = 1.5;
+
+		scene = new THREE.Scene();
+
+		var directionalLight = new THREE.DirectionalLight(0xffffff, .7);
+		directionalLight.position.set(1, -1, 0).normalize();
+		directionalLight.castShadow = true;
+		var ambientLight = new THREE.AmbientLight(0xffffff);
+		var pointLight = new THREE.PointLight(0xffffff);
+		pointLight.position.set(0, 0, 0);
+
+		scene.add(ambientLight);
+		scene.add(directionalLight);
+		scene.add(pointLight);
+
+		var texture = new THREE.TextureLoader().load('assets/wong-chinese.png');
+		texture.wrapT = texture.wrapS = THREE.RepeatWrapping;
+		var noise = new THREE.TextureLoader().load('assets/noise.png');
+		noise.wrapT = noise.wrapS = THREE.RepeatWrapping;
+		var geom = new THREE.PlaneBufferGeometry(50, 50, 256, 256);
+		// var geom = new THREE.SphereBufferGeometry(1, 1, 256, 256);
+		shapeMat = new THREE.ShaderMaterial({
+			transparent: true,
+			// wireframe: true,
+			uniforms : {
+				"time" : { type: "f", value : 0.0 },
+				"texture" : { type : "t", value : texture},
+				"noise" : { type : "t", value : noise },
+				"speed" : { type : "f", value : .5},
+				"scale" : { type : "v2", value : distScale},
+				"mouse" : { type : "v2", value : mouse },
+				"resolution" : { type : "v2", value : resolution },
+				"magnitude" : { type : "f", value : .025 }
+			},
+			side : THREE.DoubleSide,
+			vertexShader : document.getElementById('vertexShader').textContent,
+			fragmentShader : document.getElementById('fragmentShader').textContent
+		});
+
+		shape = new THREE.Mesh(geom, shapeMat);
+		var s = 5;
+		shape.scale.set(s, s, s);
+		// shape.position.set()
+		scene.add(shape);
+
+		window.addEventListener('resize', resize);
+		window.addEventListener('mousemove', onMouseMove);
+	}
+
+	function update(){
+		time = new Date().getTime() - startTime;
+		shapeMat.uniforms['time'].value += .05;
+		
+
+		controls.update();
+	}
+
+	function animate(){
+		update();
+		renderer.render(scene, camera);
+		window.requestAnimationFrame(animate);
+	}
+
+	init();
+	animate();
+</script>
+</html>
