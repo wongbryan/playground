@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Aurora</title>
+	<title>Mirror</title>
 </head>
 
 <style>
@@ -16,6 +16,7 @@
 
 <script src="bower_components/three.js/build/three.js"></script>
 <script src="bower_components/three.js/examples/js/controls/TrackballControls.js"></script>
+<script src="bower_components/three.js/examples/js/Mirror.js"></script>
 <script src="bower_components/dat.gui/dat.gui.min.js"></script>
 <script src="js/classes.js"></script>
 <script>
@@ -24,12 +25,8 @@ var angle = 0;
 var clock = new THREE.Clock();
 var time;
 
-var auroraMat;
-var aurora = new Aurora();
-
-var box, occlusionBox;
-
-var occlusionRenderTarget, occlusionComposer, composer, volumetericLightShaderUniforms;
+var mirror;
+var box;
 
 const DEFAULT_LAYER = 0, 
 OCCLUSION_LAYER = 1,
@@ -71,13 +68,30 @@ function init() {
 		scene.add(directionalLight);
 		scene.add(pointLight);
 
-		scene.add(aurora.mesh);
+		var group = new THREE.Group();
+
+		mirror = new THREE.Mirror(5, 5, {
+			clipBias : 0.003,
+			textureWidth: window.innerWidth * window.devicePixelRatio,
+			textureHeight: window.innerHeight * window.devicePixelRatio,
+			color: 0x777777
+		});
+		mirror.rotation.x = -Math.PI/2;
+		mirror.position.y = -1;
+		group.add(mirror);
+
+		box = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshPhongMaterial({color : 0x000000}));
+		group.add(box);
+
+		group.rotation.x = Math.PI/6;
+		scene.add(group);
+
 		window.addEventListener('resize', resize);
 	}
 
 	function update(){
-		time = clock.getDelta() * .0005;
-		auroraMat.uniforms["uTime"].value += time;
+		box.rotation.y += .005;
+		box.rotation.x += .005;
 		camera.lookAt(scene.position);
 		controls.update();
 	}

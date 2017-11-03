@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Aurora</title>
+	<title>Mirror</title>
 </head>
 
 <style>
@@ -16,32 +16,25 @@
 
 <script src="bower_components/three.js/build/three.js"></script>
 <script src="bower_components/three.js/examples/js/controls/TrackballControls.js"></script>
+<script src="bower_components/three.js/examples/js/Mirror.js"></script>
 <script src="bower_components/dat.gui/dat.gui.min.js"></script>
 <script src="js/classes.js"></script>
 <script>
 	var camera, scene, renderer, controls, gui;
-var angle = 0;
-var clock = new THREE.Clock();
-var time;
+	var angle = 0;
+	var clock = new THREE.Clock();
+	var time;
 
-var auroraMat;
-var aurora = new Aurora();
+	var mirror;
+	var box;
 
-var box, occlusionBox;
+	function resize(){
+		camera.aspect = window.innerWidth / window.innerHeight;
+		camera.updateProjectionMatrix();
+		renderer.setSize( window.innerWidth, window.innerHeight );
+	}
 
-var occlusionRenderTarget, occlusionComposer, composer, volumetericLightShaderUniforms;
-
-const DEFAULT_LAYER = 0, 
-OCCLUSION_LAYER = 1,
-OTHER = 2;
-
-function resize(){
-	camera.aspect = window.innerWidth / window.innerHeight;
-	camera.updateProjectionMatrix();
-	renderer.setSize( window.innerWidth, window.innerHeight );
-}
-
-function init() {
+	function init() {
 		var container = document.getElementById( 'container' );
 		renderer = new THREE.WebGLRenderer({antialias: true});
 		renderer.shadowMap.enabled = true;
@@ -60,24 +53,45 @@ function init() {
 
 		scene = new THREE.Scene();
 
-		var directionalLight = new THREE.DirectionalLight(0xffffff, .7);
-		directionalLight.position.set(1, -1, 0).normalize();
+		var directionalLight = new THREE.DirectionalLight(0xfff4f6, .7);
+		directionalLight.position.set(-5, 5, 1);
 		directionalLight.castShadow = true;
-		var ambientLight = new THREE.AmbientLight(0xffffff);
-		var pointLight = new THREE.PointLight(0xffffff);
-		pointLight.position.set(0, 0, 0);
+		var ambientLight = new THREE.AmbientLight(0xfa7cf2);
+		var pointLights = [];
+		pointLights[0] = new THREE.PointLight(0xffffff, 1);
+		pointLights[1] = new THREE.PointLight(0xffffff, 1);
+		pointLights[2] = new THREE.PointLight(0xffffff, 1);
+
+		pointLights[0].position.set(0, 50, 50);
+		pointLights[1].position.set(-50, 0, 50);
+		pointLights[2].position.set(50, -50, 50);
 
 		scene.add(ambientLight);
 		scene.add(directionalLight);
-		scene.add(pointLight);
+		scene.add(pointLights[0]);
+		scene.add(pointLights[1]);
+		scene.add(pointLights[2]);
 
-		scene.add(aurora.mesh);
+		var loader = new THREE.JSONLoader();
+
+		loader.load(
+			'assets/computer.json',
+
+			function(geometry, materials){
+
+				console.log(materials);
+				
+				materials[0] = new THREE.MeshBasicMaterial();
+
+				box = new THREE.Mesh(geometry, materials);
+				scene.add(box);
+			}
+		);
+
 		window.addEventListener('resize', resize);
 	}
 
 	function update(){
-		time = clock.getDelta() * .0005;
-		auroraMat.uniforms["uTime"].value += time;
 		camera.lookAt(scene.position);
 		controls.update();
 	}
