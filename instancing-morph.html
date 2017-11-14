@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Aurora</title>
+</head>
+
+<style>
+	body{
+		margin: 0;
+		overflow: hidden;
+	}
+
+
+	#description{
+		position: absolute;
+		bottom: 10px;
+		left: 10px;
+		color: black;
+		font-family: Helvetica, sans-serif;
+	}
+</style>
+<body>
+	<div id="container"></div>
+	<div id="description">Instancing + morph targets. Move around with click+drag, press any key to morph.</div>
+</body>
+
+<script type="vsh" id="vertexShader">
+	uniform float time;
+	uniform float minX;
+	uniform float length;
+	uniform float morphAmp;
+
+	attribute vec3 morphPosition;
+	attribute vec3 translate;
+
+	varying float vScale;
+	varying vec2 vUv;
+
+	void main(){
+		vUv = uv;
+
+		vec4 mvPosition = modelViewMatrix * vec4( translate + (morphPosition-translate)*morphAmp, 1.0 );
+		
+		vec3 trTime = vec3(translate.x + time, translate.y + time,translate.z + time);
+		float scale = abs(cos( 3.14159*trTime.x / (length*3.) )) + sin( trTime.y * 3.2 ) + sin(trTime.z * 4.);
+		vScale = scale;
+		mvPosition.xyz += position * scale * .02;
+		// mvPosition.xyz += (morphPosition-translate)*1.;
+		gl_Position = projectionMatrix * mvPosition;
+
+		// gl_Position = projectionMatrix*modelViewMatrix*vec4(morphPosition, 1.);
+	}
+</script>
+<script type="fsh" id="fragmentShader">
+	precision highp float;
+
+	uniform sampler2D map;
+	varying vec2 vUv;
+	varying float vScale;
+	// HSL to RGB Convertion helpers
+	vec3 HUEtoRGB(float H){
+		H = mod(H,1.0);
+		float R = abs(H * 4.0 - 3.0) - 1.0;
+		float G = 1.0 - abs(H * 3.0 - 2.0);
+		float B = 2.0 - abs(H * 6.0 - 4.0);
+		return clamp(vec3(R,G,B),0.0,1.0);
+	}
+	vec3 HSLtoRGB(vec3 HSL){
+		vec3 RGB = HUEtoRGB(HSL.x);
+		float C = (1.0 - abs(2.0 * HSL.z - 1.0)) * HSL.y;
+		return (RGB - 0.5) * C + HSL.z;
+	}
+	void main() {
+		vec4 diffuseColor = texture2D( map, vUv );
+		gl_FragColor = vec4( diffuseColor.xyz * HSLtoRGB(vec3(vScale/5.0, vScale*1.0, 0.5)), diffuseColor.w );
+		// gl_FragColor = vec4(diffuseColor.xyz * vec3(1., .6, 1.), 1.);
+		if ( diffuseColor.w < 0.5 ) discard;
+	}
+</script>
+
+<script src="bower_components/three.js/build/three.js"></script>
+<script src="bower_components/tween.js/src/Tween.js"></script>
+<script src="bower_components/three.js/examples/js/controls/TrackballControls.js"></script>
+<script src="bower_components/dat.gui/dat.gui.min.js"></script>
+<script src="js/classes.js"></script>
+<script>
+	var MODEL_DATA = {};
+	var avatar;
+
+	var manager = new THREE.LoadingManager();
+	var loader = new THREE.JSONLoader(manager);
+	loader.load('assets/banana-geom.json', 
+		function(geometry){
+			MODEL_DATA['banana'] = geometry;
+		}
+	);
+
+	loader.load( 'assets/gun.json',
+		function ( geometry ) {
+			MODEL_DATA['gun'] = geometry;
+		}
+	);
+
+	manager.onLoad = function() {
+		console.log('done');
+		avatar = new Avatar(MODEL_DATA['gun'], MODEL_DATA['banana']);
+		// avatar.mesh.rotation.set = (Math.PI/6, Math.PI/2, 0);
+		avatar.morph();
+		document.body.addEventListener('keypress', function(){
+			console.log('he');
+			avatar.morph();
+		});
+	}
+
+	var Avatar = function(options){
+
+		var _this = this;
+
+		var circleGeometry = new THREE.CircleBufferGeometry(1, 6);
+		var geometry = new THREE.InstancedBufferGeometry();
+		// geometry.copy(sphereGeometry);
+		geometry.copy(circleGeometry)
+
+		var gunGeom = MODEL_DATA['gun'];
+
+		var positions = gunGeom.vertices;
+		var instances = positions.length;
+
+		var minX = 0;
+		var translateArray = new Float32Array(instances*3);
+		for (var i=0; i<instances; i++){
+			var index = i*3,
+			v = positions[i];
+
+			if (minX > v.x)
+				minX = v.x;
+
+			translateArray[index] = v.x;
+			translateArray[index+1] = v.y;
+			translateArray[index+2] = v.z;
+		}
+
+		var translateAttribute = new THREE.InstancedBufferAttribute(translateArray, 3, 1);
+		geometry.addAttribute('translate', translateAttribute);
+
+		var morphVertices = MODEL_DATA['banana'].vertices;
+		var morphArray = new Float32Array(instances*3);
+
+		for(var i=0, morphIndex=0; i<instances; morphIndex++, i++){
+			morphIndex = (morphIndex>=morphVertices.length) ? 0 : morphIndex;
+
+			var index = i*3;
+			var v = morphVertices[morphIndex];
+			// console.log(morphIndex);
+			morphArray[index] = v.x;
+			morphArray[index+1] = v.y;
+			morphArray[index+2] = v.z;
+		}
+
+		var morphAttr = new THREE.InstancedBufferAttribute(morphArray, 3, 1);
+		geometry.addAttribute('morphPosition', morphAttr);
+		
+		gunGeom.computeBoundingBox();
+		var length = gunGeom.boundingBox.max.x-gunGeom.boundingBox.min.x;	
+
+		var sprite = new THREE.TextureLoader().load('assets/circle.png');
+
+		var mat = new THREE.ShaderMaterial({
+			vertexShader : document.getElementById('vertexShader').textContent,
+			fragmentShader : document.getElementById('fragmentShader').textContent,
+			uniforms : {
+				'time' : { 'value' : 0. },
+				'minX' : { 'value' : minX },
+				'length' : { 'value' : length },
+				'map' : { 'value' : sprite },
+				'morphAmp' : { 'value' : 0. },
+			}
+		});
+
+		var mesh = new THREE.Mesh(geometry, mat);
+		_this.mesh = mesh;
+		scene.add(mesh);
+
+		this.morphAmplitude = 0;
+
+		this.morph = function(){
+
+			var _this = this;
+			var target = (_this.mesh.material.uniforms['morphAmp'].value > 0) ? 0 : 1;
+			var cur = { value : _this.mesh.material.uniforms['morphAmp'].value };
+			var targetMagnitude = { value : target };	
+
+			var tween = new TWEEN.Tween(cur).to(targetMagnitude, 1500);
+			tween.onUpdate(function(){
+				_this.mesh.material.uniforms['morphAmp'].value = cur.value;
+			})
+			tween.easing(TWEEN.Easing.Elastic.Out);
+
+			tween.start();
+
+			// this.morphIndex = (this.morphIndex == 0) ? 1 : 0;
+		}
+	};
+
+	//main
+
+	var camera, scene, renderer, controls;
+	var clock = new THREE.Clock();
+	var pointLight;
+
+	function resize(){
+		camera.aspect = window.innerWidth / window.innerHeight;
+		camera.updateProjectionMatrix();
+		renderer.setSize( window.innerWidth, window.innerHeight );
+	}
+
+	function init() {
+		var container = document.getElementById( 'container' );
+		renderer = new THREE.WebGLRenderer({antialias: true});
+		renderer.shadowMap.enabled = true;
+		renderer.shadowMap.type = THREE.PCSoftShadowMap;
+		renderer.setPixelRatio( window.devicePixelRatio );
+		renderer.setSize( window.innerWidth, window.innerHeight);
+		renderer.setClearColor(0x8adcff, 1.);
+		container.appendChild( renderer.domElement );
+		
+		camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, .0001, 10000 );
+		camera.position.set(-6, 0, 2);
+		controls = new THREE.TrackballControls(camera, renderer.domElement);
+
+		scene = new THREE.Scene();
+
+		scene.fog = new THREE.FogExp2(0x8adcff, .015);
+
+		var directionalLight = new THREE.DirectionalLight(0xfff4f6, .7);
+		directionalLight.position.set(-5, 5, 1);
+		directionalLight.castShadow = true;
+		var ambientLight = new THREE.AmbientLight(0xfa7cf2);
+		var pointLights = [];
+		pointLights[0] = new THREE.PointLight(0xffffff, 1);
+		pointLights[1] = new THREE.PointLight(0xffffff, 1);
+		pointLights[2] = new THREE.PointLight(0xffffff, 1);
+
+		pointLights[0].position.set(0, 50, 50);
+		pointLights[1].position.set(-50, 0, 50);
+		pointLights[2].position.set(50, -50, 50);
+
+		for (var i=0; i<pointLights.length; i++){
+			scene.add(pointLights[i]);
+		}
+
+		scene.add(ambientLight);
+		scene.add(directionalLight);
+
+		// scene.add(Land);
+		// scene.add(Avatar);
+		// Avatar.position.y = -25;
+
+		window.addEventListener('resize', resize);
+	}
+
+	function update(){
+		TWEEN.update();
+		controls.update();
+		// Avatar.move();
+
+		if(avatar !== undefined){
+			avatar.mesh.material.uniforms['time'].value += .015;
+		}
+
+		if (pointLight != undefined)
+			pointLight.position.copy(Avatar.position);
+	}
+
+	function animate(){
+		update();
+		renderer.render(scene, camera);
+		window.requestAnimationFrame(animate);
+	}
+
+	init();
+	animate();
+</script>
+</html>
