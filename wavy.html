@@ -1,5 +1,7 @@
 <!DOCTYPE html>
 <html>
+<meta name="viewport" content="width=device-width">
+<link rel="stylesheet" type="text/css" href="assets/fonts/Playfair/stylesheet.css"/>
 <head>
 	<title>Fractal Brownian Motion</title>
 </head>
@@ -17,11 +19,73 @@
 		color: black;
 		font-family: Helvetica, sans-serif;
 	}
+
+	#instructions {
+	  -moz-pointer-events: none;
+	  -webkit-pointer-events: none;
+	  -o-pointer-events: none;
+	  -ms-pointer-events: none;
+	  pointer-events: none;
+	  position: fixed;
+	  display: none;
+	  background-color: #000000; }
+	  #instructions span {
+	    -moz-pointer-events: none;
+	    -webkit-pointer-events: none;
+	    -o-pointer-events: none;
+	    -ms-pointer-events: none;
+	    pointer-events: none;
+	    font-family: "Playfair Display", serif;
+	    font-size: 12px;
+	    color: #ffffff; }
+
+	#container {
+    width: 50vh;
+    height: 50vh;
+    margin: auto;
+    top: 50%;
+    left: 50%;
+    position: absolute;
+    transform: translate(-50%, -50%); }
+    #container canvas {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%); }
+  @media screen and (max-width: 768px) {
+    #container {
+      width: 50vh;
+      height: 50vh;
+      margin-bottom: 10px; } }
+
+     #loading{
+		background-color: black;
+		height: 100vh;
+		width: 100vw;
+		position: fixed;
+		z-index: 2000;
+	}
+
+	#loading h1 {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		color: white;
+		font-family: sans-serif;
+		font-size: 1em;
+		font-weight: lighter;
+		text-align: center;
+	}
 </style>
 <body>
+	<div id="loading"><h1>LOADING</h1></div>
 	<div id="container"></div>
+	<div id="instructions">
+		<span>CLICK AND HOLD</span>
+	</div>
 	<div id="description">
-		Distortion of an image using a sin'd Perlin noise texture. WITH MOUSE INTERACTION! 
+		Simulating liquid motion with a custom fragment shader. Art by Maciej Kuciara. 
 	</div>
 </body>
 
@@ -81,11 +145,39 @@
 <script src="bower_components/three.js/examples/js/controls/OrbitControls.js"></script>
 
 <script>
+	var loader = new THREE.TextureLoader();
+
+	function getTexture(path){
+		var texture = loader.load(path);
+		texture.wrapT = texture.wrapS = THREE.RepeatWrapping;
+
+		return texture;
+	}
+
+	var scaleDown = 1;
+	if( /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ) {
+		scaleDown = .8;
+	}
+
+	var ImageData = {
+		'sardines' : {
+			'texture' : getTexture('assets/sardines.png'),
+			'aspect' : 758/1300,
+			'scale' : 9*scaleDown
+		},
+
+		'robot' : {
+			'texture' : getTexture('assets/maciej.png'),
+			'aspect' : 581/385,
+			'scale' : 5*scaleDown
+		}
+	}
+
+	var MORPH_INCREMENT = .05;
+
+	//set up scene
 	var camera, scene, renderer, controls;
 	var SCREEN_WIDTH = window.innerWidth, SCREEN_HEIGHT = window.innerHeight;
-	var angle = 0;
-	var clock = new THREE.Clock();
-	var time; var startTime = new Date().getTime();
 
 	var mouse = new THREE.Vector2();
 	var resolution = new THREE.Vector2(SCREEN_WIDTH*2, SCREEN_HEIGHT*2);
@@ -93,27 +185,26 @@
 	var box;
 	var shape;
 	var distScale = new THREE.Vector2(1., 1.);
-
-	function onMouseMove( event ) {
-		mouse.x = ( event.clientX / window.innerWidth );
-		mouse.y = -( event.clientY / window.innerHeight ) + 1;
-		// console.log("(" + mouse.x + ", " + mouse.y + ")");
-	}
+	var geom, shapeMat;
 
 	function resize(){
 		camera.aspect = window.innerWidth / window.innerHeight;
 		camera.updateProjectionMatrix();
 		renderer.setSize( window.innerWidth, window.innerHeight );
+
+		resolution.x = window.innerWidth*2;
+		resolution.y = window.innerHeight*2;
 	}
 
 	function init() {
 		var container = document.getElementById( 'container' );
-		renderer = new THREE.WebGLRenderer({antialias: true});
+		renderer = new THREE.WebGLRenderer({antialias: true, alpha : true});
 		renderer.shadowMap.enabled = true;
 		renderer.shadowMap.type = THREE.PCSoftShadowMap;
 		renderer.setPixelRatio( window.devicePixelRatio );
 		renderer.setSize( window.innerWidth, window.innerHeight);
-		renderer.setClearColor(0xededed);
+		renderer.setClearColor(0xffffff, 0);
+		renderer.domElement.style.zIndex = -1;
 		container.appendChild( renderer.domElement );
 		
 		camera = new THREE.OrthographicCamera( SCREEN_WIDTH / - 2, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_HEIGHT / - 2, -1000, 1000 );;
@@ -127,24 +218,36 @@
 
 		scene = new THREE.Scene();
 
-		var directionalLight = new THREE.DirectionalLight(0xffffff, .7);
-		directionalLight.position.set(1, -1, 0).normalize();
-		directionalLight.castShadow = true;
 		var ambientLight = new THREE.AmbientLight(0xffffff);
-		var pointLight = new THREE.PointLight(0xffffff);
-		pointLight.position.set(0, 0, 0);
 
 		scene.add(ambientLight);
-		scene.add(directionalLight);
-		scene.add(pointLight);
 
-		var texture = new THREE.TextureLoader().load('assets/Background.png');
-		texture.wrapT = texture.wrapS = THREE.RepeatWrapping;
+		window.addEventListener('resize', resize);
+	}
+
+	function update(){
+		shapeMat.uniforms['time'].value += .05;
+		controls.update();
+	}
+
+	function animate(){
+		update();
+		renderer.render(scene, camera);
+		window.requestAnimationFrame(animate);
+	}
+
+	function initImage(name){
+		var image = ImageData[name];
+		var texture = image.texture;
+		var s = image.scale;
+		var aspect = image.aspect;
+
 		var noise = new THREE.TextureLoader().load('assets/noise.png');
 		noise.wrapT = noise.wrapS = THREE.RepeatWrapping;
+
 		var width = 50;
-		var aspect = 721/555;
-		var geom = new THREE.PlaneBufferGeometry(width, width*aspect, 256, 256);
+
+		geom = new THREE.PlaneGeometry(width, width*aspect, 256, 256);
 		// var geom = new THREE.SphereBufferGeometry(1, 1, 256, 256);
 		shapeMat = new THREE.ShaderMaterial({
 			transparent: true,
@@ -165,30 +268,119 @@
 		});
 
 		shape = new THREE.Mesh(geom, shapeMat);
-		var s = 10;
 		shape.scale.set(s, s, s);
 		// shape.position.set()
 		scene.add(shape);
-
-		window.addEventListener('resize', resize);
-		window.addEventListener('mousemove', onMouseMove);
 	}
-
-	function update(){
-		time = new Date().getTime() - startTime;
-		shapeMat.uniforms['time'].value += .05;
-		
-
-		controls.update();
-	}
-
-	function animate(){
-		update();
-		renderer.render(scene, camera);
-		window.requestAnimationFrame(animate);
-	}
-
 	init();
+	initImage('robot');
 	animate();
+
+	//ui
+	function changeImage(name){
+		var image = ImageData[name];
+		var texture = image.texture;
+		var aspect = image.aspect;
+		var s = image.scale;
+
+		var width = 50;
+		var geom = new THREE.PlaneGeometry(width, width*aspect, 256, 256);
+
+		shape.geometry = geom;
+		shape.material.uniforms['texture'].value = texture;
+		shape.scale.set(s, s, s);
+	}
+
+	/*MOUSE EVENTS*/
+	var mousedownID = -1; 
+	var interval = -1; 
+	var changed = false;
+	var changeBase = false;
+	var container = document.getElementById('container');
+	var follower = document.getElementById('instructions');
+
+	function onMouseMove( event ) {
+		var mouseX = event.clientX, mouseY = event.clientY;
+		follower.style.top = mouseY + "px";
+		follower.style.left = mouseX + "px";
+
+		mouse.x = ( event.clientX / window.innerWidth );
+		mouse.y = -( event.clientY / window.innerHeight ) + 1;
+		// console.log("(" + mouse.x + ", " + mouse.y + ")");
+	}
+
+	function mousedown(event) {
+		if(mousedownID==-1)  
+			mousedownID = setInterval(whilemousedown, 50 );
+		if(interval!=-1){
+			clearInterval(interval);
+			interval = -1;
+		}
+
+		follower.style.display = "none";
+	}
+
+	function mouseup(event) {
+	   if(mousedownID!=-1) {  //Only stop if exists
+		    clearInterval(mousedownID);
+		    mousedownID=-1;
+
+		    interval = setInterval(function(){
+		     	if (shape.material.uniforms['magnitude'].value <= .05 ){
+		     		shape.material.uniforms['magnitude'].value = .05
+		     		clearInterval(interval);
+		     		interval = -1;
+		     		changed = false;
+		     	}
+		     	shape.material.uniforms['magnitude'].value -= 2*MORPH_INCREMENT;
+		    }, 50);
+	   }
+
+	}
+
+	function whilemousedown() {
+		var magnitude = shape.material.uniforms['magnitude'].value;
+			// console.log(magnitude);
+		if (magnitude >= 1.2 && !changed){
+			changed = true;
+			changeBase = true;
+			shape.material.uniforms['magnitude'].value = 1.2;
+			// changeImage('robot');
+		}
+		else
+			shape.material.uniforms['magnitude'].value += MORPH_INCREMENT;
+	}
+
+	//Assign events
+	window.addEventListener('mousemove', onMouseMove, false);
+	container.addEventListener("mousedown", mousedown, false);
+	container.addEventListener("mouseup", mouseup, false);
+	//Also clear the interval when user leaves the window with mouse
+	container.addEventListener("mouseout", mouseup, false);
+
+	function showInstructions(event){
+		event.stopPropagation();
+		follower.style.display = "block";
+	}
+
+	function hideInstructions(event){
+		event.stopPropagation();
+		follower.style.display = "none";
+	}
+
+	container.addEventListener("mouseenter", showInstructions, false);
+
+	container.addEventListener("mouseleave", hideInstructions, false);
+
+	if( /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ) {
+		container.addEventListener("touchstart", mousedown);
+		container.addEventListener("touchend", mouseup);
+	}
+
+	THREE.DefaultLoadingManager.onLoad = function ( ) {
+		document.getElementById('loading').style.display = 'none';
+	};
+
+
 </script>
 </html>
