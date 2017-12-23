@@ -42,8 +42,8 @@
                 uniforms: {
 
                     "tDiffuse": { value: null },
-                    "pixels": { value: 2048. },
-                    "step": { value: 1. }
+                    "resolution": { value: null },
+                    "pixelSize": { value: 1. },
 
                 },
 
@@ -63,16 +63,15 @@
                 fragmentShader: [
 
                     "uniform sampler2D tDiffuse;",
-                    "uniform float pixels;",
-                    "uniform float step;",
+                    "uniform float pixelSize;",
+                    "uniform vec2 resolution;",
 
                     "varying highp vec2 vUv;",
 
                     "void main(){",
 
-                    "float dx = step*(1.0 / pixels);",
-                    "float dy = step*(1.0 / pixels);",
-                    "vec2 coord = vec2(dx * floor(vUv.x / dx), dy * floor(vUv.y / dy));",
+                    "vec2 dxy = pixelSize / resolution;",
+                    "vec2 coord = dxy * floor( vUv / dxy );",
                     "gl_FragColor = texture2D(tDiffuse, coord);",
 
                     "}"
@@ -87,8 +86,8 @@
 
             function updateGUI(){
 
-                pixelPass.uniforms.pixels.value = params.pixels;
-                pixelPass.uniforms.step.value = params.step;
+                pixelPass.uniforms.pixelSize.value = params.pixelSize;
+
             }
 
             function resize(){
@@ -96,6 +95,8 @@
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize( window.innerWidth, window.innerHeight );
+
+                pixelPass.uniforms.resolution.value.set( window.innerWidth, window.innerHeight ).multiplyScalar( window.devicePixelRatio );
             
             }
 
@@ -228,21 +229,21 @@
                 composer = new THREE.EffectComposer(renderer);
                 composer.addPass(new THREE.RenderPass(scene, camera));
 
-                pixelPass = new THREE.ShaderPass(PixelShader);
+                pixelPass = new THREE.ShaderPass( PixelShader );
+                pixelPass.uniforms.resolution.value = new THREE.Vector2( window.innerWidth, window.innerHeight );
+                pixelPass.uniforms.resolution.value.multiplyScalar( window.devicePixelRatio );
                 pixelPass.renderToScreen = true;
-                composer.addPass(pixelPass);
+                composer.addPass( pixelPass );
 
-                window.addEventListener('resize', resize);
+                window.addEventListener( 'resize', resize );
 
                 params = {
-                    pixels: 256,
-                    step: 2.5,
+                    pixelSize: 64,
                     postprocessing: true
-                }
-                var gui = new dat.GUI();
-                gui.add(params, 'pixels').min(12.0).max(512).step(5.0);
-                gui.add(params, 'step').min(1.0).max(5.0).step(.25);
-                gui.add(params, 'postprocessing')
+                };
+                gui = new dat.GUI();
+                gui.add( params, 'pixelSize' ).min( 2 ).max( 256 ).step( 2 );
+                gui.add( params, 'postprocessing' );
 
             }
 
