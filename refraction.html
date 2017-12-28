@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Refraction</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <style>
+            body{
+                margin: 0;
+                overflow: hidden;
+            }
+
+            #description{
+                position: absolute;
+                bottom: 10px;
+                left: 10px;
+                color: black;
+                font-family: Helvetica, sans-serif;
+            }
+
+            #loading{
+                background-color: black;
+                height: 100vh;
+                width: 100vw;
+                position: fixed;
+                z-index: 2000;
+            }
+
+            #loading h1 {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                color: white;
+                font-family: sans-serif;
+                font-size: 1em;
+                font-weight: lighter;
+                text-align: center;
+            }
+        </style>
+    </head>
+    <body>
+
+        <script src="bower_components/dat.gui/dat.gui.min.js"></script>
+
+        <script src="bower_components/three.js/build/three.js"></script>
+
+        <script src="bower_components/three.js/examples/js/shaders/CopyShader.js"></script>
+        <script src="bower_components/three.js/examples/js/postprocessing/EffectComposer.js"></script>
+        <script src="bower_components/three.js/examples/js/postprocessing/RenderPass.js"></script>
+        <script src="bower_components/three.js/examples/js/postprocessing/ShaderPass.js"></script>
+        <script src="bower_components/three.js/examples/js/controls/TrackballControls.js"></script>
+
+        <div id="loading"><h1>LOADING</h1></div>
+
+        <div id="container"></div>
+
+        <div id="description">Refraction shader based on Evan Wallace's WebGL Water demo. Scroll to zoom, click and drag to move around.</div>
+
+        <script>
+
+            var RefractionShader = {
+
+                uniforms: {
+
+                    "tDiffuse": { value: null },
+                    "delta" : { value : null },
+
+                },
+
+                vertexShader: [
+
+                    "varying highp vec2 vUv;",
+
+                    "void main() {",
+
+                    "vUv = uv;",
+                    "gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
+
+                    "}"
+
+                ].join( "\n" ),
+
+                fragmentShader: [
+
+                    "uniform sampler2D tDiffuse;",
+                    "uniform vec2 delta;",
+                    "varying vec2 vUv;",
+
+                    "void main() {",
+
+                      "/* get vertex info */",
+                      "vec4 info = texture2D(tDiffuse, vUv);",
+
+                      "/* calculate average neighbor height */",
+                      "vec2 dx = vec2(delta.x, 0.0);",
+                      "vec2 dy = vec2(0.0, delta.y);",
+                      "float average = (",
+                        "texture2D(tDiffuse, vUv - dx).r +",
+                        "texture2D(tDiffuse, vUv - dy).r +",
+                        "texture2D(tDiffuse, vUv + dx).r +",
+                        "texture2D(tDiffuse, vUv + dy).r",
+                      ") * 0.25;",
+
+                      "/* change the velocity to move toward the average */",
+                      "info.g += (average - info.r) * 2.0;",
+
+                      "/* attenuate the velocity a little so waves do not last forever */",
+                      "info.g *= 0.995;",
+
+                      "/* move the vertex along the velocity */",
+                      "info.r += info.g;",
+
+                      "gl_FragColor = info;",
+
+                    "}",
+
+                ].join( "\n" )
+            };
+
+            var camera, scene, renderer, gui, composer;
+            var refractionPass, params;
+
+            var models = ['apple', 'starfruit'];
+            var geomData = [], matData = [], group;
+
+            function updateGUI(){
+
+                refractionPass.uniforms.delta.value.x = params.refractX;
+                refractionPass.uniforms.delta.value.y = params.refractY;
+
+            }
+
+            function resize(){
+
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize( window.innerWidth, window.innerHeight );
+            
+            }
+
+            function init() {
+
+                var container = document.getElementById( 'container' );
+                renderer = new THREE.WebGLRenderer({antialias: true});
+                renderer.shadowMap.enabled = true;
+                renderer.shadowMap.type = THREE.PCSoftShadowMap;
+                renderer.setPixelRatio( window.devicePixelRatio );
+                renderer.setSize( window.innerWidth, window.innerHeight);
+                renderer.setClearColor(0xbfe7ff);
+                container.appendChild( renderer.domElement );
+                
+                camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
+                camera.position.set(0, 0, 100);
+                controls = new THREE.TrackballControls(camera, renderer.domElement);
+                controls.rotateSpeed = 2.0;
+                controls.panSpeed = 0.8;
+                controls.zoomSpeed = 1.5;
+
+                scene = new THREE.Scene();
+
+                var hemisphereLight = new THREE.HemisphereLight(0xfceafc, 0x000000, .8)
+
+                var shadowLight = new THREE.DirectionalLight(0xffffff, .5);
+
+                shadowLight.position.set(150, 75, 150);
+
+                shadowLight.castShadow = true;
+                shadowLight.shadow.camera.left = -75;
+                shadowLight.shadow.camera.right = 75;
+                shadowLight.shadow.camera.top = 75;
+                shadowLight.shadow.camera.bottom = -75;
+                shadowLight.shadow.camera.near = 1;
+                shadowLight.shadow.camera.far = 1000;
+
+                shadowLight.shadow.mapSize.width = 1024;
+                shadowLight.shadow.mapSize.height = 1024;
+
+                var shadowLight2 = shadowLight.clone();
+                shadowLight2.castShadow = false;
+                shadowLight2.intensity = .2;
+                shadowLight2.position.set(-150, 75, -150);
+
+                var shadowLight3 = shadowLight.clone();
+                shadowLight3.castShadow = false;
+                shadowLight3.intensity = .1;
+                shadowLight3.position.set(0, 125, 0);
+
+                scene.add(hemisphereLight);
+                scene.add(shadowLight);
+                scene.add(shadowLight2);
+                scene.add(shadowLight3);
+
+                geomData.push(new THREE.TorusKnotGeometry(1, .4, 64, 64));
+
+                matData.push(new THREE.MeshStandardMaterial({
+                    color: 0xd9486b,
+                    emissive: 0x790f15,
+                    roughness: .14,
+                    flatShading: false,
+                    metalness: .3
+                }));
+
+                matData.push(new THREE.MeshStandardMaterial({
+                    color: 0xb3f28b,
+                    emissive: 0x68841f,
+                    metalness: .5,
+                    flatShading: false,
+                    roughness: .06
+                }));
+
+                matData.push(new THREE.MeshStandardMaterial({
+                    color: 0xfcfa37,
+                    emissive: 0xbd4215,
+                    metalness: .5,
+                    flatShading: false,
+                    roughness: .06
+                }));
+
+                matData.push(new THREE.MeshStandardMaterial({
+                    color: 0x5c70fb,
+                    emissive: 0x1235ae,
+                    roughness: 0,
+                    flatShading: false,
+                    metalness: 0
+                }));
+
+                matData.push(new THREE.MeshStandardMaterial({
+                    color: 0xbe9a47,
+                    emissive: 0x676925,
+                    roughness: .16,
+                    flatShading: false,
+                    metalness: 0
+                }));
+
+                matData.push(new THREE.MeshStandardMaterial({
+                    color: 0xb3f28b,
+                    emissive: 0x68841f,
+                    metalness: .5,
+                    flatShading: false,
+                    roughness: .06
+                }));
+
+                var numShapes = 25;
+                group = new THREE.Group();
+
+                for(var i=0; i<numShapes; i++){
+
+                    var geom = geomData[Math.floor(Math.random()*geomData.length)];
+                    var mat = matData[Math.floor(Math.random()*matData.length)]
+                    var mesh = new THREE.Mesh( geom, mat );
+                    var s = 1+Math.random()*7;
+                    mesh.scale.set(s, s, s);
+
+                    mesh.position.set( Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5 ).normalize();
+                    mesh.position.multiplyScalar( Math.random() * 200 );
+                    mesh.rotation.set( Math.random() * 2, Math.random() * 2, Math.random() * 2 );
+                    group.add( mesh );
+
+                }
+
+                scene.add(group);
+
+                composer = new THREE.EffectComposer(renderer);
+                composer.addPass(new THREE.RenderPass(scene, camera));
+
+                refractionPass = new THREE.ShaderPass( RefractionShader );
+                refractionPass.uniforms.delta.value = new THREE.Vector2( 0, 0 );
+                refractionPass.renderToScreen = true;
+                composer.addPass( refractionPass );
+
+                window.addEventListener( 'resize', resize );
+
+                params = {
+                    refractX: .15,
+                    refractY: .15,
+                    postprocessing: true
+                };
+                gui = new dat.GUI();
+                gui.add( params, 'refractX' ).min( 0 ).max( 1 ).step( .01 );
+                gui.add( params, 'refractY' ).min( 0 ).max( 1 ).step( .01 );
+                gui.add( params, 'postprocessing' );
+
+            }
+
+            function update(){
+                controls.update();
+                updateGUI();
+                group.rotation.y+=.0015;
+                group.rotation.z+=.001;
+            }
+
+            function animate(){
+                update();
+                if(params.postprocessing)
+                    composer.render();
+                else
+                    renderer.render(scene, camera);
+                window.requestAnimationFrame(animate);
+            }
+
+            THREE.DefaultLoadingManager.onLoad = function ( ) {
+
+                document.getElementById('loading').style.display = 'none';
+                init();
+                animate();
+
+            };
+
+            var loader = new THREE.JSONLoader();
+            
+            for(var i=0; i<models.length; i++){
+                var path = 'assets/' + models[i] + '.json';
+
+                loader.load(
+
+                    path, 
+
+                    function(geom, mat){
+                        geomData.push(geom);
+                    }
+
+                )
+            }
+
+        </script>
+    </body>
+</html>
