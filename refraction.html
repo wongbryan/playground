@@ -151,7 +151,7 @@
                 container.appendChild( renderer.domElement );
                 
                 camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
-                camera.position.set(0, 0, 100);
+                camera.position.set(0, 0, 150);
                 controls = new THREE.TrackballControls(camera, renderer.domElement);
                 controls.rotateSpeed = 2.0;
                 controls.panSpeed = 0.8;
@@ -288,6 +288,8 @@
                 updateGUI();
                 group.rotation.y+=.0015;
                 group.rotation.z+=.001;
+
+                group.position.z = 50*Math.sin(.0005*Date.now());
             }
 
             function animate(){
