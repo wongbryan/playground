@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Refraction</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <style>
+            body{
+                margin: 0;
+                overflow: hidden;
+            }
+
+            #description{
+                position: absolute;
+                bottom: 10px;
+                left: 10px;
+                color: black;
+                font-family: Helvetica, sans-serif;
+            }
+
+            #loading{
+                background-color: black;
+                height: 100vh;
+                width: 100vw;
+                position: fixed;
+                z-index: 2000;
+            }
+
+            #loading h1 {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                color: white;
+                font-family: sans-serif;
+                font-size: 1em;
+                font-weight: lighter;
+                text-align: center;
+            }
+        </style>
+    </head>
+    <body>
+
+        <script src="bower_components/dat.gui/dat.gui.min.js"></script>
+
+        <script src="bower_components/three.js/build/three.js"></script>
+
+        <script src="bower_components/three.js/examples/js/shaders/CopyShader.js"></script>
+        <script src="bower_components/three.js/examples/js/postprocessing/EffectComposer.js"></script>
+        <script src="bower_components/three.js/examples/js/postprocessing/RenderPass.js"></script>
+        <script src="bower_components/three.js/examples/js/postprocessing/ShaderPass.js"></script>
+        <script src="bower_components/three.js/examples/js/controls/TrackballControls.js"></script>
+
+        <div id="loading"><h1>LOADING</h1></div>
+
+        <div id="container"></div>
+
+        <div id="description">Wavify shader for post processing.</div>
+
+        <script>
+
+            var WaveShader = {
+
+                uniforms: {
+
+                    "tDiffuse": { value: null },
+                    "time": { value: null },
+                    "texture": { value: null },
+                    "noise": { value: null },
+                    "speed": { value: null },
+                    "scale": { value: null },
+                    "mouse": { value: null },
+                    "resolution": { value: null },
+                    "magnitude": { value: null }
+
+                },
+
+                vertexShader: [
+
+                    "varying highp vec2 vUv;",
+
+                    "void main() {",
+
+                        "vUv = uv;",
+                        "gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
+
+                    "}"
+
+                ].join( "\n" ),
+
+                fragmentShader: [
+
+                    "uniform sampler2D tDiffuse;",
+                    "uniform sampler2D noise;",
+                    "uniform float magnitude;",
+                    "uniform float time;",
+                    "uniform float speed;",
+                    "uniform vec2 scale;",
+                    "uniform vec2 mouse;",
+                    "uniform vec2 resolution;",
+
+                    "varying vec2 vUv;",
+
+                    "void main(){",
+                        "vec2 st = gl_FragCoord.xy/resolution;",
+
+                        "/*get displacement w perlin noise*/",
+                        "vec4 map = texture2D(noise, vUv + time*speed*.01);",
+                        "map -= 0.5;",
+
+                        "/*add sin movement to displacement for slight wave effect*/",
+                        "map.xy *= sin(vUv.y*100.+time*speed);",
+                        "map.xy *= scale * .8 * magnitude;",
+
+                        "/*distortion from mouse*/",
+                        "float radius =  .05;",
+                        "float dist = length(st-mouse);",
+                        "float inCircle = step(dist, radius);",
+
+                        "float extraDistort = (radius-dist)*inCircle*.5;",
+
+                        "map += extraDistort;",
+
+                        "vec4 color = texture2D(tDiffuse, vec2(vUv.x - map.x, vUv.y - map.y));",
+
+                        "gl_FragColor = vec4(vec3(color.g), 1.);",
+                    "}"
+
+                ].join( "\n" )
+            };
+
+            var camera, scene, renderer, gui, composer;
+            var wavePass, params;
+
+            var models = ['apple', 'starfruit'];
+            var geomData = [], matData = [], group;
+
+            var mouse = new THREE.Vector2();
+
+            function resize(){
+
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize( window.innerWidth, window.innerHeight );
+                wavePass.uniforms.resolution.value.set(window.innerWidth * 2, window.innerHeight * 2);
+            
+            }
+
+            function init() {
+
+                var container = document.getElementById( 'container' );
+                renderer = new THREE.WebGLRenderer({antialias: true});
+                renderer.shadowMap.enabled = true;
+                renderer.shadowMap.type = THREE.PCSoftShadowMap;
+                renderer.setPixelRatio( window.devicePixelRatio );
+                renderer.setSize( window.innerWidth, window.innerHeight);
+                renderer.setClearColor(0xbfe7ff);
+                container.appendChild( renderer.domElement );
+                
+                camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
+                camera.position.set(0, 0, 0);
+                // controls = new THREE.TrackballControls(camera, renderer.domElement);
+                // controls.rotateSpeed = 2.0;
+                // controls.panSpeed = 0.8;
+                // controls.zoomSpeed = 1.5;
+
+                scene = new THREE.Scene();
+
+                var hemisphereLight = new THREE.HemisphereLight(0xfceafc, 0x000000, .8)
+
+                var shadowLight = new THREE.DirectionalLight(0xffffff, .5);
+
+                shadowLight.position.set(150, 75, 150);
+
+                shadowLight.castShadow = true;
+                shadowLight.shadow.camera.left = -75;
+                shadowLight.shadow.camera.right = 75;
+                shadowLight.shadow.camera.top = 75;
+                shadowLight.shadow.camera.bottom = -75;
+                shadowLight.shadow.camera.near = 1;
+                shadowLight.shadow.camera.far = 1000;
+
+                shadowLight.shadow.mapSize.width = 1024;
+                shadowLight.shadow.mapSize.height = 1024;
+
+                var shadowLight2 = shadowLight.clone();
+                shadowLight2.castShadow = false;
+                shadowLight2.intensity = .2;
+                shadowLight2.position.set(-150, 75, -150);
+
+                var shadowLight3 = shadowLight.clone();
+                shadowLight3.castShadow = false;
+                shadowLight3.intensity = .1;
+                shadowLight3.position.set(0, 125, 0);
+
+                scene.add(hemisphereLight);
+                scene.add(shadowLight);
+                scene.add(shadowLight2);
+                scene.add(shadowLight3);
+
+                geomData.push(new THREE.BoxGeometry(2, 2, 2));
+
+                matData.push(new THREE.MeshStandardMaterial({
+                    color: 0xd9486b,
+                    emissive: 0x790f15,
+                    roughness: .14,
+                    flatShading: false,
+                    metalness: .3
+                }));
+
+                matData.push(new THREE.MeshStandardMaterial({
+                    color: 0xb3f28b,
+                    emissive: 0x68841f,
+                    metalness: .5,
+                    flatShading: false,
+                    roughness: .06
+                }));
+
+                matData.push(new THREE.MeshStandardMaterial({
+                    color: 0xfcfa37,
+                    emissive: 0xbd4215,
+                    metalness: .5,
+                    flatShading: false,
+                    roughness: .06
+                }));
+
+                matData.push(new THREE.MeshPhongMaterial({
+                    color: 0xff0000,
+                }))
+
+                var sphereGeom = new THREE.SphereGeometry(150, 32, 32);
+                var vertices = sphereGeom.vertices;
+
+                group = new THREE.Group();
+
+                for(var i=0; i<vertices.length; i++){
+
+                    var geom = geomData[Math.floor(Math.random()*geomData.length)];
+                    var mat = matData[Math.floor(Math.random()*matData.length)]
+                    var mesh = new THREE.Mesh( geom, mat );
+                    var s = 1;
+                    mesh.scale.set(s, s, s);
+
+                    var v = vertices[i];
+                    mesh.position.set(v.x, v.y, v.z);
+                    mesh.rotation.set(Math.random()*2*Math.PI, Math.random()*2*Math.PI, Math.random()*2*Math.PI);
+
+                    group.add( mesh );
+
+                }
+
+                scene.add(group);
+
+                composer = new THREE.EffectComposer(renderer);
+                composer.addPass(new THREE.RenderPass(scene, camera));
+
+                wavePass = new THREE.ShaderPass( WaveShader );
+                wavePass.renderToScreen = true;
+
+                var distScale = new THREE.Vector2(1, 1);
+
+                var resolution = new THREE.Vector2(window.innerWidth*2, window.innerHeight*2);
+
+                wavePass.uniforms["time"] = { value : 0.0 };
+                wavePass.uniforms["noise"] = { value: noise };
+                wavePass.uniforms["speed"] = { value: .5};
+                wavePass.uniforms["scale"] = { value: distScale};
+                wavePass.uniforms["mouse"] = { value: mouse };
+                wavePass.uniforms["resolution"] = { value: resolution };
+                wavePass.uniforms["magnitude"] = { value: .025 };
+
+                composer.addPass( wavePass );
+
+                window.addEventListener( 'resize', resize );
+
+                params = {
+                    postprocessing: true
+                };
+                gui = new dat.GUI();
+                gui.add( params, 'postprocessing' );
+
+                initUI();
+
+            }
+
+            function update(){
+
+                group.rotation.y+=.0015;
+                group.rotation.z+=.001;
+
+                group.position.z = 10*Math.sin(.0005*Date.now());
+            }
+
+            function animate(){
+                update();
+                if(params.postprocessing)
+                    composer.render();
+                else
+                    renderer.render(scene, camera);
+                window.requestAnimationFrame(animate);
+            }
+
+            /*MOUSE EVENTS*/
+            var mousedownID = -1; 
+            var interval = -1; 
+            var changed = false;
+
+            var MORPH_INCREMENT = .05;
+
+            function onMouseMove( event ) {
+
+                var mouseX = event.clientX, mouseY = event.clientY;
+
+                wavePass.uniforms.mouse.value.x = ( event.clientX / window.innerWidth );
+                wavePass.uniforms.mouse.value.y = -( event.clientY / window.innerHeight ) + 1;
+
+            }
+
+            function mousedown(event) {
+
+                if(mousedownID==-1)  
+                    mousedownID = setInterval(whilemousedown, 50 );
+                if(interval!=-1){
+                    clearInterval(interval);
+                    interval = -1;
+                }
+
+            }
+
+            function mouseup(event) {
+               if(mousedownID!=-1) { 
+                    clearInterval(mousedownID);
+                    mousedownID=-1;
+
+                    interval = setInterval(function(){
+                        if (wavePass.uniforms['magnitude'].value <= .05 ){
+                            wavePass.uniforms['magnitude'].value = .05
+                            clearInterval(interval);
+                            interval = -1;
+                            changed = false;
+                        }
+                        wavePass.uniforms['magnitude'].value -= 2*MORPH_INCREMENT;
+                    }, 50);
+               }
+
+            }
+
+            function whilemousedown() {
+                var magnitude = wavePass.uniforms['magnitude'].value;
+
+                if (magnitude >= 1.2 && !changed){
+
+                    changed = true;
+                    changeBase = true;
+                    wavePass.uniforms['magnitude'].value = 1.2;
+
+                }
+                else{
+
+                    wavePass.uniforms['magnitude'].value += MORPH_INCREMENT;
+
+                }
+            }
+
+            function initUI(){
+
+                window.addEventListener('mousemove', onMouseMove, false);
+                document.body.addEventListener("mousedown", mousedown, false);
+                document.body.addEventListener("mouseup", mouseup, false);
+                document.body.addEventListener("mouseout", mouseup, false);
+
+            }
+
+            THREE.DefaultLoadingManager.onLoad = function ( ) {
+
+                document.getElementById('loading').style.display = 'none';
+                init();
+                animate();
+
+            };
+
+            var loader = new THREE.JSONLoader();
+            
+            for(var i=0; i<models.length; i++){
+                var path = 'assets/' + models[i] + '.json';
+
+                loader.load(
+
+                    path, 
+
+                    function(geom, mat){
+                        geomData.push(geom);
+                    }
+
+                )
+            }
+
+
+            var noise = new THREE.TextureLoader().load('assets/noise.png');
+            noise.wrapT = noise.wrapS = THREE.RepeatWrapping;
+
+        </script>
+    </body>
+</html>
