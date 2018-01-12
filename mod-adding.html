@@ -44,7 +44,7 @@
         new THREE.Vector3(6, 7, 7),
         new THREE.Vector3(14, 15, 17),
         new THREE.Vector3(22, 16, 24),
-        new THREE.Vector3(33, 40, 33),
+        new THREE.Vector3(64, 61, 42),
         new THREE.Vector3(74, 43, 93),
         new THREE.Vector3(167, 31, 217),
     ];
@@ -136,7 +136,7 @@
             shiftCamera(value);
         });
 
-        camera.position.set(76, 84, 50);
+        camera.position.copy(cameraPositions[3]); 
 
 		window.addEventListener('resize', resize);
 	}
