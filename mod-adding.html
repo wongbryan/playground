@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Overflow</title>
+</head>
+
+<style>
+	body{
+		margin: 0;
+		overflow: hidden;
+	}
+
+	#description{
+		position: absolute;
+		bottom: 10px;
+		left: 10px;
+		color: white;
+		font-family: Helvetica, sans-serif;
+	}
+</style>
+<body>
+	<div id="container"></div>
+	<div id="description">
+		Representation of integer overflow for n-bits on an n x n grid. using instancing. I animated it by interpolating the maximum value that can be represented by n-bits.</br> I cheated a little since technically the max for a 4-bit number is 15, but I just interpolated the "max" from 0 to 15 to create a wave effect.</br>
+	</div>
+</body>
+
+<script src="bower_components/three.js/build/three.js"></script>
+<script src="bower_components/three.js/examples/js/controls/TrackballControls.js"></script>
+<script src="bower_components/dat.gui/dat.gui.min.js"></script>
+<script src="bower_components/tween.js/src/Tween.js"></script>
+<script>
+	var camera, scene, renderer, controls;
+    var mat, grid, WIDTH, HEIGHT;
+
+    const maxBits = 6;
+    const MAX_INSTANCES = Math.pow(2, maxBits) * Math.pow(2, maxBits);
+
+    var params, gui, controller;
+
+    var time = 0;
+
+    var cameraPositions = [
+        new THREE.Vector3(6, 7, 7),
+        new THREE.Vector3(14, 15, 17),
+        new THREE.Vector3(22, 16, 24),
+        new THREE.Vector3(33, 40, 33),
+        new THREE.Vector3(74, 43, 93),
+        new THREE.Vector3(167, 31, 217),
+    ];
+
+	function resize(){
+		camera.aspect = window.innerWidth / window.innerHeight;
+		camera.updateProjectionMatrix();
+		renderer.setSize( window.innerWidth, window.innerHeight );
+	}
+
+	function init() {
+		var container = document.getElementById( 'container' );
+		renderer = new THREE.WebGLRenderer({antialias: true});
+		renderer.shadowMap.enabled = true;
+		renderer.shadowMap.type = THREE.PCSoftShadowMap;
+		renderer.setPixelRatio( window.devicePixelRatio );
+		renderer.setSize( window.innerWidth, window.innerHeight);
+		renderer.setClearColor(0x0c0c0c, 1.);
+		container.appendChild( renderer.domElement );
+		
+		camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, .001, 10000 );
+
+		controls = new THREE.TrackballControls(camera, renderer.domElement);
+		controls.rotateSpeed = 2.0;
+		controls.panSpeed = 0.8;
+		controls.zoomSpeed = 1.5;
+
+		scene = new THREE.Scene();
+		scene.fog = new THREE.Fog(0x0c0c0c, 1, 50);
+
+		var hemisphereLight = new THREE.HemisphereLight(0xfceafc, 0x000000, .8)
+
+        var shadowLight = new THREE.DirectionalLight(0xffffff, .5);
+
+        shadowLight.position.set(150, 75, 150);
+
+        shadowLight.castShadow = true;
+        shadowLight.shadow.camera.left = -75;
+        shadowLight.shadow.camera.right = 75;
+        shadowLight.shadow.camera.top = 75;
+        shadowLight.shadow.camera.bottom = -75;
+        shadowLight.shadow.camera.near = 1;
+        shadowLight.shadow.camera.far = 1000;
+
+        shadowLight.shadow.mapSize.width = 1024;
+        shadowLight.shadow.mapSize.height = 1024;
+
+        var shadowLight2 = shadowLight.clone();
+        shadowLight2.castShadow = false;
+        shadowLight2.intensity = .2;
+        shadowLight2.position.set(-150, 75, -150);
+
+        var shadowLight3 = shadowLight.clone();
+        shadowLight3.castShadow = false;
+        shadowLight3.intensity = .1;
+        shadowLight3.position.set(0, 125, 0);
+
+        scene.add(hemisphereLight);
+        scene.add(shadowLight);
+        scene.add(shadowLight2);
+        scene.add(shadowLight3);
+
+        var vertexShader = [
+
+            "attribute vec3 translate;",
+            "uniform float max;",
+
+            "varying vec2 vUv;",
+
+            "void main(){",
+
+                "vUv = uv;",
+
+                "vec4 mvPosition = modelViewMatrix * vec4( translate, 1.0 );",
+                "float scale = mod(translate.x + translate.y, max);",
+                "vec3 p = vec3(position.x, position.y*scale, position.z);",
+
+                "mvPosition.xyz += p;",
+                "gl_Position = projectionMatrix * mvPosition;",
+
+            "}"
+
+        ].join('\n');
+
+        var fragmentShader = [
+
+           "precision highp float;",
+           "uniform sampler2D texture;",
+           "varying vec2 vUv;",
+
+            "void main() {",
+
+                "gl_FragColor = texture2D(texture, vUv);",
+
+            "}",
+
+        ].join('\n');
+
+        var sprite = new THREE.TextureLoader().load('assets/noise.png');
+        mat = new THREE.ShaderMaterial({
+            vertexShader : vertexShader,
+            fragmentShader : fragmentShader,
+            uniforms : {
+                'max': { 'value': 16. },
+                'texture': { 'value': sprite },
+            },
+        });
+
+        createGrid(4);
+
+        params = {
+            bits: 4,
+        };
+        gui = new dat.GUI();
+        controller = gui.add( params, 'bits' ).min( 1 ).max( 6 ).step( 1 );
+
+        controller.onFinishChange(function(value){
+            createGrid(value);
+            shiftCamera(value);
+        });
+
+        camera.position.set(76, 84, 50);
+
+		window.addEventListener('resize', resize);
+	}
+
+    function createGrid(bits){
+
+        WIDTH = HEIGHT = Math.pow(2, bits);
+        var instances = WIDTH * HEIGHT;
+
+        var boxX = 1, boxY = 1;
+        var boxGeom = new THREE.BoxBufferGeometry(boxX, boxY, 1);
+        var geometry = new THREE.InstancedBufferGeometry();
+        geometry.copy(boxGeom);
+        var space = 1;
+
+        var typedArray = new Float32Array(MAX_INSTANCES * 3);
+        var index = 0;
+        for (var i=0; i<WIDTH; i++){
+
+            for(var j=0; j<HEIGHT; j++){
+
+                var pos = new THREE.Vector3( i * (boxX + space), 0,  j * (boxY + space) );
+
+                typedArray[index] = pos.x;
+                typedArray[index+1] = pos.y;
+                typedArray[index+2] = pos.z;
+
+                index += 3;
+
+            }
+
+        }
+
+        var translateAttribute = new THREE.InstancedBufferAttribute(typedArray, 3, 1);
+        translateAttribute.dynamic = true;
+        geometry.addAttribute('translate', translateAttribute);
+
+        scene.remove(grid);
+        grid = new THREE.Mesh(geometry, mat);
+        scene.add(grid);
+
+    }
+
+    function shiftCamera(bit){
+        var position = cameraPositions[bit-1];
+        var tween = new TWEEN.Tween(camera.position).to(position, 800);
+        tween.easing(TWEEN.Easing.Quadratic.InOut);
+        tween.start();
+    }
+
+	function update(){
+
+        TWEEN.update();
+        time += .005;
+        grid.material.uniforms['max'].value = (WIDTH + HEIGHT) * Math.abs(Math.sin(time));
+		controls.update();
+
+	}
+
+	function animate(){
+
+		update();
+		renderer.render(scene, camera);
+		window.requestAnimationFrame(animate);
+
+	}
+
+	init();
+	animate();
+</script>
+</html>
