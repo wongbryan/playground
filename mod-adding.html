@@ -112,14 +112,13 @@
             "attribute vec3 translate;",
             "uniform float max;",
 
-            "varying vec2 vUv;",
+            "varying float vScale;",
 
             "void main(){",
 
-                "vUv = uv;",
-
                 "vec4 mvPosition = modelViewMatrix * vec4( translate, 1.0 );",
                 "float scale = mod(translate.x + translate.y, max);",
+                "vScale = scale;",
                 "vec3 p = vec3(position.x, position.y*scale, position.z);",
 
                 "mvPosition.xyz += p;",
@@ -132,24 +131,23 @@
         var fragmentShader = [
 
            "precision highp float;",
-           "uniform sampler2D texture;",
-           "varying vec2 vUv;",
+           "uniform float max;",
+
+           "varying float vScale;",
 
             "void main() {",
 
-                "gl_FragColor = texture2D(texture, vUv);",
+                "gl_FragColor = vec4(vec3(vScale/(max-1.)), 1.);",
 
             "}",
 
         ].join('\n');
 
-        var sprite = new THREE.TextureLoader().load('assets/noise.png');
         mat = new THREE.ShaderMaterial({
             vertexShader : vertexShader,
             fragmentShader : fragmentShader,
             uniforms : {
                 'max': { 'value': 16. },
-                'texture': { 'value': sprite },
             },
         });
 
