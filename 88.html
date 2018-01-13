@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Overflow</title>
+</head>
+
+<style>
+	body{
+		margin: 0;
+		overflow: hidden;
+	}
+
+    #loading{
+        background-color: black;
+        height: 100vh;
+        width: 100vw;
+        position: fixed;
+        z-index: 2000;
+    }
+
+    #loading h1 {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-family: sans-serif;
+        font-size: 1em;
+        font-weight: lighter;
+        text-align: center;
+    }
+
+	#description{
+		position: absolute;
+		bottom: 10px;
+		left: 10px;
+		color: white;
+		font-family: Helvetica, sans-serif;
+	}
+
+    #play{
+        font-family: Helvetica;
+        font-size: 1em;
+        position: absolute;
+        margin: 25px;
+        color: white;
+        bottom: 0;
+        right: 0;
+    }
+
+    #play:hover{
+        cursor: pointer;
+    }
+</style>
+<body>
+    <div id="loading"><h1>LOADING</h1></div>
+	<div id="container"></div>
+    <div id="play" onclick="toggleplay()">play</div>
+	<div id="description">
+		Visualizing audio using frequency data and instancing.
+	</div>
+</body>
+
+<script src="bower_components/three.js/build/three.js"></script>
+<script src="bower_components/three.js/examples/js/controls/TrackballControls.js"></script>
+<script src="bower_components/dat.gui/dat.gui.min.js"></script>
+<script src="bower_components/tween.js/src/Tween.js"></script>
+<script>
+	var camera, scene, renderer, controls;
+    var mat, grid, WIDTH, HEIGHT;
+    var audioLoader, analyser, listener, sound;
+
+    var volumeThreshold = 1, decay = .1, hold = 0;
+    var time = 0;
+
+    var playing = false;
+
+    var modelGeom;
+
+	function resize(){
+		camera.aspect = window.innerWidth / window.innerHeight;
+		camera.updateProjectionMatrix();
+		renderer.setSize( window.innerWidth, window.innerHeight );
+	}
+
+	function init(geometry) {
+		var container = document.getElementById( 'container' );
+		renderer = new THREE.WebGLRenderer({antialias: true});
+		renderer.shadowMap.enabled = true;
+		renderer.shadowMap.type = THREE.PCSoftShadowMap;
+		renderer.setPixelRatio( window.devicePixelRatio );
+		renderer.setSize( window.innerWidth, window.innerHeight);
+		renderer.setClearColor(0x0c0c0c, 1.);
+		container.appendChild( renderer.domElement );
+		
+		camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, .001, 10000 );
+
+		controls = new THREE.TrackballControls(camera, renderer.domElement);
+		controls.rotateSpeed = 2.0;
+		controls.panSpeed = 0.8;
+		controls.zoomSpeed = 1.5;
+
+		scene = new THREE.Scene();
+		scene.fog = new THREE.Fog(0x0c0c0c, 1, 50);
+
+		var hemisphereLight = new THREE.HemisphereLight(0xfceafc, 0x000000, .8)
+
+        scene.add(hemisphereLight);
+
+        var vertexShader = [
+
+            "attribute vec3 translate;",
+            "uniform float freqData[16];",
+            "uniform float width;",
+            "uniform float height;",
+            "uniform float magnitude;",
+
+            "varying float vScale;",
+            "varying float p;",
+
+            "void main(){",
+
+                "p = position.x;",
+                "vec4 mvPosition = modelViewMatrix * vec4( translate, 1.0 );",
+                "int index = int(floor(16.*(abs(translate.x)/width)));",
+                "float scale = freqData[index];",
+                "vScale = float(index)/width;",
+                "vec3 p = vec3(position.x, position.y * scale * magnitude, position.z);",
+
+                "mvPosition.xyz += p;",
+                "gl_Position = projectionMatrix * mvPosition;",
+
+            "}"
+
+        ].join('\n');
+
+        var fragmentShader = [
+
+           "precision highp float;",
+           "uniform float max;",
+
+           "varying float vScale;",
+           "varying float p;",
+
+           "vec3 HUEtoRGB(float H){",
+                "H = mod(H,1.0);",
+                "float R = abs(H * 6.0 - 3.0) - 1.0;",
+                "float G = 2.0 - abs(H * 6.0 - 2.0);",
+                "float B = 2.0 - abs(H * 6.0 - 4.0);",
+                "return clamp(vec3(R,G,B),0.0,1.0);",
+            "}",
+
+            "vec3 HSLtoRGB(vec3 HSL){",
+                "vec3 RGB = HUEtoRGB(HSL.x);",
+                "float C = (1.0 - abs(2.0 * HSL.z - 1.0)) * HSL.y;",
+                "return (RGB - 0.5) * C + HSL.z;",
+            "}",
+
+            "void main() {",
+
+                // "float h = clamp(vScale, 0., .14);",
+                // "vec3 hsl = vec3(h, 50., .9);",
+                // "vec3 color = HSLtoRGB(hsl);",
+                // "gl_FragColor = vec4(color, .2);",
+                // "gl_FragColor = vec4(vec3(.3+vScale), .2);",
+                "gl_FragColor = vec4(HUEtoRGB(.66 + p+vScale*.2), .2);",
+
+            "}",
+
+        ].join('\n');
+
+        var dataLength = 16;
+        var arr = Array.apply(null, Array(dataLength)).map(Number.prototype.valueOf,1);
+
+        var boxX = .1, boxY = .1;
+        var boxGeom = new THREE.BoxBufferGeometry(boxX, boxY, 1);
+        var geometry = new THREE.InstancedBufferGeometry();
+        geometry.copy(boxGeom);
+
+        var planeGeom = modelGeom,
+        vertices = planeGeom.vertices,
+        instances = vertices.length;
+
+        var typedArray = new Float32Array( instances * 3);
+
+        var index = 0;
+        for (var i=0; i<instances; i++){
+
+            var pos = vertices[i];
+
+            typedArray[index] = pos.x;
+            typedArray[index+1] = pos.y;
+            typedArray[index+2] = pos.z;
+
+            index += 3;
+
+        }
+
+        var translateAttribute = new THREE.InstancedBufferAttribute(typedArray, 3, 1);
+        translateAttribute.dynamic = true;
+        geometry.addAttribute('translate', translateAttribute);
+
+        WIDTH = HEIGHT = 5;
+
+        mat = new THREE.ShaderMaterial({
+            vertexShader : vertexShader,
+            fragmentShader : fragmentShader,
+            uniforms : {
+                'freqData': { 'value': arr },
+                'width': { 'value': WIDTH },
+                'height': { 'value': HEIGHT },
+                'magnitude': { 'value': .04 }
+            },
+            transparent: true
+        });
+
+        grid = new THREE.Mesh(geometry, mat);
+        scene.add(grid);
+
+        camera.position.set(0, -25, 2);
+        camera.add(listener);
+
+        grid.add(sound);
+
+        grid.rotation.y = -Math.PI;
+        grid.rotation.z = Math.PI;
+        grid.rotation.x = Math.PI;
+
+        camera.position.set(-2.5, 2.5, 5);
+
+        var buffer = songs['rain'];
+
+        sound.setBuffer(buffer);
+        sound.setRefDistance(20);
+        sound.setVolume(.5);
+
+        params = {
+            song: 'florida'
+        }
+        gui = new dat.GUI();
+        controller = gui.add(params, 'song', Object.keys(songs) );
+
+        controller.onChange(function(value){
+
+            var buffer = songs[value];
+            sound.setBuffer(buffer);
+
+        })
+
+		window.addEventListener('resize', resize);
+	}
+
+    function toggleplay(){
+        if(playing){
+            sound.pause();
+            playing = false;
+            document.getElementById('play').innerHTML = 'play';
+        }
+        else{
+            sound.play();
+            playing = true;
+            document.getElementById('play').innerHTML = 'pause';
+        }
+    }
+
+	function update(){
+
+        var freqDataInt = analyser.getFrequencyData();
+        var freqData = Array.from(freqDataInt);
+
+        grid.material.uniforms['freqData'].value = freqData;
+        
+        var volume = 0;
+        for(var i=0; i<freqData.length; i++){
+
+            volume += freqData[i];
+
+        }
+
+        volume = volume/freqData.length;
+        if(volume>volumeThreshold && !hold){
+            volumeThreshold = volume;
+            hold = 1;
+        }
+
+        volumeThreshold = (volumeThreshold <= 0) ? 0 : volumeThreshold-decay;
+        hold = (hold <= 0) ? 0 : hold-.005;
+
+        grid.material.uniforms['magnitude'].value = .01+.05*(volume/256);
+
+		controls.update();
+
+        grid.rotation.y += .0005;
+
+	}
+
+	function animate(){
+
+		update();
+		renderer.render(scene, camera);
+		window.requestAnimationFrame(animate);
+
+	}
+
+    var loader = new THREE.JSONLoader(),
+    audioLoader = new THREE.AudioLoader();
+
+    var songs = {
+        'florida': null,
+        'rain': null,
+    }
+
+    function loadSong(key){
+
+        var path = 'assets/' + key + '.mp3';
+
+        audioLoader.load( path, function( buffer ) {
+            songs[key] = buffer;
+        });
+
+    }
+
+    for(var key in songs){
+        loadSong(key);
+    }
+
+    loader.load(
+        'assets/88.json',
+        function(geometry){
+            modelGeom = geometry;
+        }
+    )
+
+     // create an AudioListener and add it to the camera
+    listener = new THREE.AudioListener();
+
+    // create an Audio source
+    sound = new THREE.PositionalAudio( listener );
+
+    // create an AudioAnalyser, passing in the sound and desired fftSize
+    analyser = new THREE.AudioAnalyser( sound, 32 );
+
+    THREE.DefaultLoadingManager.onLoad = function(){
+        document.getElementById('loading').style.display = 'none';
+        console.log(songs.florida);
+        init();
+        animate();
+    }
+</script>
+</html>
