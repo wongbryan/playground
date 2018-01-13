@@ -10,13 +10,41 @@
 		overflow: hidden;
 	}
 
-    #loading{
-        background-color: black;
+    #loading, #start{
         height: 100vh;
         width: 100vw;
         position: fixed;
+    }
+
+    #loading{
+        background-color: black;
         z-index: 2000;
     }
+
+    #start{
+        z-index: 1000;
+        opacity: 1;
+        background: rgba(0, 0, 0, .6);
+        transition: all .5s ;
+    }
+
+    #start .startButton{
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-family: sans-serif;
+        font-size: 1em;
+        font-weight: lighter;
+        text-align: center;
+        text-decoration: none;
+    }
+
+    #start .startButton a:hover{
+        cursor: pointer;
+    }
+
 
     #loading h1 {
         position: absolute;
@@ -51,13 +79,24 @@
     #play:hover{
         cursor: pointer;
     }
+
+    a{
+        text-decoration: underline;
+        color: white;
+
+    }
 </style>
 <body>
     <div id="loading"><h1>LOADING</h1></div>
+    <div id="start">
+        <div class="startButton">
+            <a>START</a>
+        </div>
+    </div>
 	<div id="container"></div>
     <div id="play" onclick="toggleplay()">play</div>
 	<div id="description">
-		Visualizing audio using frequency data and instancing.
+		Visualizing audio using frequency data and instancing. Model by <a target="_blank" href="https://aprilding.myportfolio.com/">April Ding</a>.
 	</div>
 </body>
 
@@ -228,25 +267,6 @@
 
         camera.position.set(-2.5, 2.5, 5);
 
-        var buffer = songs['rain'];
-
-        sound.setBuffer(buffer);
-        sound.setRefDistance(20);
-        sound.setVolume(.5);
-
-        params = {
-            song: 'florida'
-        }
-        gui = new dat.GUI();
-        controller = gui.add(params, 'song', Object.keys(songs) );
-
-        controller.onChange(function(value){
-
-            var buffer = songs[value];
-            sound.setBuffer(buffer);
-
-        })
-
 		window.addEventListener('resize', resize);
 	}
 
@@ -279,6 +299,7 @@
 
         volume = volume/freqData.length;
         if(volume>volumeThreshold && !hold){
+            console.log('beat');
             volumeThreshold = volume;
             hold = 1;
         }
@@ -287,10 +308,9 @@
         hold = (hold <= 0) ? 0 : hold-.005;
 
         grid.material.uniforms['magnitude'].value = .01+.05*(volume/256);
+        grid.rotation.y += .0005;
 
 		controls.update();
-
-        grid.rotation.y += .0005;
 
 	}
 
@@ -302,28 +322,7 @@
 
 	}
 
-    var loader = new THREE.JSONLoader(),
-    audioLoader = new THREE.AudioLoader();
-
-    var songs = {
-        'florida': null,
-        'rain': null,
-    }
-
-    function loadSong(key){
-
-        var path = 'assets/' + key + '.mp3';
-
-        audioLoader.load( path, function( buffer ) {
-            songs[key] = buffer;
-        });
-
-    }
-
-    for(var key in songs){
-        loadSong(key);
-    }
-
+    var loader = new THREE.JSONLoader();
     loader.load(
         'assets/88.json',
         function(geometry){
@@ -337,14 +336,31 @@
     // create an Audio source
     sound = new THREE.PositionalAudio( listener );
 
+    // load a sound and set it as the Audio object's buffer
+    audioLoader = new THREE.AudioLoader();
+    audioLoader.load( 'assets/joji.mp3', function( buffer ) {
+        sound.setBuffer( buffer );
+        sound.setVolume(0.5);
+        sound.setRefDistance( 20 );
+    });
+
     // create an AudioAnalyser, passing in the sound and desired fftSize
     analyser = new THREE.AudioAnalyser( sound, 32 );
 
     THREE.DefaultLoadingManager.onLoad = function(){
         document.getElementById('loading').style.display = 'none';
-        console.log(songs.florida);
         init();
         animate();
+
+        var b = document.getElementsByClassName('startButton')[0];
+        b.addEventListener('mousedown', function(){
+            toggleplay();
+            document.getElementById('start').style.opacity = 0;
+            setTimeout(function(){
+                document.getElementById('start').style.display = 'none';
+            }, 500);
+        })
+
     }
 </script>
 </html>
