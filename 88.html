@@ -60,8 +60,9 @@
 
 	#description{
 		position: absolute;
-		bottom: 10px;
-		left: 10px;
+		bottom: 0;
+		left: 0;
+        margin: 25px;
 		color: white;
 		font-family: Helvetica, sans-serif;
 	}
@@ -336,9 +337,9 @@
 
     // load a sound and set it as the Audio object's buffer
     audioLoader = new THREE.AudioLoader();
-    audioLoader.load( 'assets/joji.mp3', function( buffer ) {
+    audioLoader.load( 'assets/rockstar.mp3', function( buffer ) {
         sound.setBuffer( buffer );
-        sound.setVolume(0.5);
+        sound.setVolume(0.7);
         sound.setRefDistance( 20 );
     });
 
