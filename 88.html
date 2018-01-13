@@ -256,7 +256,6 @@
         grid = new THREE.Mesh(geometry, mat);
         scene.add(grid);
 
-        camera.position.set(0, -25, 2);
         camera.add(listener);
 
         grid.add(sound);
@@ -265,7 +264,7 @@
         grid.rotation.z = Math.PI;
         grid.rotation.x = Math.PI;
 
-        camera.position.set(-2.5, 2.5, 5);
+        camera.position.set(-2.5, 2, 5);
 
 		window.addEventListener('resize', resize);
 	}
