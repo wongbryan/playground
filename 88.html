@@ -24,7 +24,7 @@
     #start{
         z-index: 1000;
         opacity: 1;
-        background: rgba(0, 0, 0, .6);
+        background: rgba(0, 0, 0, .3);
         transition: all .5s ;
     }
 
@@ -35,7 +35,7 @@
         transform: translate(-50%, -50%);
         color: white;
         font-family: sans-serif;
-        font-size: 1em;
+        font-size: 35px;
         font-weight: lighter;
         text-align: center;
         text-decoration: none;
@@ -299,7 +299,6 @@
 
         volume = volume/freqData.length;
         if(volume>volumeThreshold && !hold){
-            console.log('beat');
             volumeThreshold = volume;
             hold = 1;
         }
