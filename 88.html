@@ -321,13 +321,10 @@
 
 	}
 
-    var loader = new THREE.JSONLoader();
-    loader.load(
-        'assets/88.json',
-        function(geometry){
-            modelGeom = geometry;
-        }
-    )
+    var modelManager = new THREE.LoadingManager();
+    var audioManager = new THREE.LoadingManager();
+
+    var loader = new THREE.JSONLoader(modelManager);
 
      // create an AudioListener and add it to the camera
     listener = new THREE.AudioListener();
@@ -336,7 +333,7 @@
     sound = new THREE.PositionalAudio( listener );
 
     // load a sound and set it as the Audio object's buffer
-    audioLoader = new THREE.AudioLoader();
+    audioLoader = new THREE.AudioLoader(audioManager);
     audioLoader.load( 'assets/rockstar.mp3', function( buffer ) {
         sound.setBuffer( buffer );
         sound.setVolume(0.7);
@@ -346,7 +343,16 @@
     // create an AudioAnalyser, passing in the sound and desired fftSize
     analyser = new THREE.AudioAnalyser( sound, 32 );
 
-    THREE.DefaultLoadingManager.onLoad = function(){
+    audioManager.onLoad = function(){
+        loader.load(
+            'assets/88.json',
+            function(geometry){
+                modelGeom = geometry;
+            }
+        )
+    }
+
+    modelManager.onLoad = function(){
         document.getElementById('loading').style.display = 'none';
         init();
         animate();
@@ -361,5 +367,6 @@
         })
 
     }
+
 </script>
 </html>
